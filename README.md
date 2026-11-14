@@ -34,6 +34,17 @@ tus proyectos y tu sistema — con tu fondo de pantalla real detrás.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+## La idea
+
+Empecé este proyecto por una razón que con el tiempo se transformó en otra.
+Al principio sólo quería algo **visual y personalizado en Linux**: un segundo
+escritorio, bonito, **sin tocar el escritorio ni estar haciendo mucha
+configuración**, y **sin gastar recursos**. Algo al estilo de quien se instala
+`neofetch` para tener algo bonito más que util — pura estética con un punto
+de utilidad.
+
+Pues esto viene a ser eso… sólo que al final le fui agregando cosas.
+
 ## Qué hace
 
 | Módulo | Contenido |
@@ -51,74 +62,24 @@ tus proyectos y tu sistema — con tu fondo de pantalla real detrás.
 | **Ajustes** | Ocho categorías —Temas, Apariencia, Reloj, Widgets, **Clima**, Sistema, **Recursos** y **Terminal**— con controles visibles |
 | **Entretenimiento** | Anime y vídeo **buscados dentro de Nébula** (AniList · `yt-dlp`), imágenes (`timg`), **terminales embebidos de cmus y cliamp** y la **consola embebida** (`Alt+T`), el menú de **emisoras y géneros**, el **descargador de música por URL** y **el reproductor embebido**: `espacio` play/pausa, `m` menú de música y grupo `♪ cliamp · online` |
 
-La **Fase 7** terminó el círculo de la música y del sistema: en Entretenimiento,
-`t` abre un **terminal embebido** (un panel grande con `cmus` o `cliamp`
-dentro, cada uno **conservando todas sus teclas**; `Ctrl+G` sale del panel,
-`Ctrl+Tab`/`Ctrl+O` cambia de aplicación y `Ctrl+T` detiene el proceso), `g`
-abre el **menú nativo de emisoras y géneros** de cliamp (con filtro `/` y `r`
-para actualizar) y `d` el **descargador de música de YouTube por URL** con
-`yt-dlp` — la etiqueta *Artista* la pone el **canal** (`--embed-metadata`
-con `--parse-metadata '%(uploader|)s:%(artist)s'`) y, al terminar, la carpeta
-se carga en cmus. En **Ajustes → Terminal** están la **sesión en la que
-vives**, los dos terminales, las opciones de **detener** cmus/cliamp, un
-**deslizador de brillo** (`+`/`−` y `←/→`, con `brightnessctl` y respaldo a
-`sysfs` + `pkexec`), el **modo terminal** —Nébula termina y `pkexec`
-`systemctl isolate multi-user.target` se ejecuta en la TTY, donde pregunta su
-contraseña en una terminal de verdad— y el **reinicio**. Y si arrancas Nébula
-en una consola (`TERM=linux`), el tema se reduce solo a los **16 colores de
-la TTY**.
+Los detalles de cada fase —y del mantenimiento de v0.7.0— están en el
+[CHANGELOG](CHANGELOG.md). Lo que se nota al usarlo:
 
-El mantenimiento de **v0.7.0** cerró los últimos huecos: `Alt+T` abre la
-**consola embebida** —un shell de login (`$SHELL -l`) como **tercer pty**
-dentro del mismo panel, también desde el menú de Entretenimiento— y, cuando
-**no hay ningún emulador de terminal** (una TTY de servidor, por ejemplo),
-los comandos que Nébula abriría en otra ventana se escriben **aquí dentro**.
-Si cmus se abre con la **biblioteca en blanco**, se siembra `~/Música` sola
-y avisa (*biblioteca cargada*). Y Nébula **escucha las señales**:
-`SIGTERM`/`SIGHUP`/`SIGQUIT`/`SIGINT` hacen una **salida limpia** —terminal
-restaurado, código 0— y una segunda fuerza la salida al momento, **sin dejar
-la consola en crudo ni el cursor escondido**. El instalador, por su parte,
-crea `~/Música/Nébula` para las descargas (respetando `XDG_MUSIC_DIR`).
-
-La **Fase 6** reorganizó el recorrido entero: el lateral se agrupa en
-**secciones** —general · sistema · código · ocio · configuración— y su foco
-salta las cabeceras; **todas las pestañas enseñan el mismo pie de atajos** al
-fondo; git se lleva en una **tira de dos filas con todo a la vista** (`a`
-añade ruta a ruta, jamás `git add .`); el panel «Operaciones apt» queda
-siempre visible; Sistema y Red ganan **filtros**; y la música se muda a
-Entretenimiento con su **chip ♪ en la barra de estado**: un clic desde
-cualquier pestaña alterna play/pausa.
-
-La **Fase 5** trajo el **visor interno**: git, `apt`, `systemctl`, scripts y
-reproductores se ejecutan en un hilo y su salida se pinta **línea a línea
-dentro de Nébula** — con scroll, seguimiento de la última línea y `Esc` para
-cerrarlo sin matar el comando. **No se abre ninguna otra terminal** salvo que
-lo pidas a propósito (el lanzador y `timg`, que es un visor de imagen de
-terminal y no puede vivir en un panel).
-
-Las búsquedas de **Entretenimiento** también ocurren aquí: escribes el nombre,
-eliges de la lista (título, año, episodios y nota) y la reproducción arranca
-desde Nébula; si falta alguna herramienta, se ofrece instalarla con un solo
-`pkexec`.
-
-Los **widgets de Inicio** se muestran u ocultan con `espacio` y cambian de forma
-con `f`: siete widgets (clima, música, sistema, proyectos, red, discos y mundo)
-y sus variantes viven en `[home]` de la configuración.
-
-La categoría **Clima** de Ajustes elige el lugar del widget: escrito a mano o
-seleccionando **país → ciudad** con un catálogo de 39 países; la consulta va a
-`wttr.in` (sin clave) y puedes forzarla con `consultar`.
-
-La sección **Recursos** de Ajustes lista lo que falta en tu sistema con ✓/✗ y lo
-instala desde el propio TUI: un solo `pkexec` para todos los paquetes de una
-sección (o de todo el catálogo) con `espacio` y `a`.
-
-Además, la **barra de estado** lleva chips vivos de volumen (`wpctl`), brillo y
-batería, y hay **modo Zen** (`F11`) para quedarte sólo con el fondo y el contenido.
-La barra lateral se abre y cierra con `Ctrl+B` o con el botón **⟨/⟩** que lleva
-siempre en su borde; con `Ctrl+E` la enfocas y te mueves por ella con `↑/↓`.
-Al arrancar, una **pantalla de bienvenida** analiza tu sistema y se retira sola
-(`Esc` la salta).
+- **Visor interno**: git, `apt`, `systemctl` y los reproductores corren en un
+  hilo y su salida se pinta **línea a línea dentro de Nébula**, con `Esc` para
+  cerrarlo sin matar el comando — no se abre otra terminal salvo que lo pidas.
+- **Widgets de Inicio** a tu medida (clima, música, sistema, proyectos, red,
+  discos y mundo): `espacio` los muestra u oculta y `f` cambia su forma.
+- **Modo zen** (`F11`): sólo el contenido, sin cromo, sin bordes, sin títulos.
+- **Barra de estado** con chips vivos de volumen (`wpctl`), brillo y batería,
+  y el chip `♪` que alterna play/pausa desde cualquier pestaña.
+- **Pantalla de bienvenida** que analiza tu sistema al arrancar y se retira
+  sola (`Esc` la salta); la barra lateral se abre y cierra con `Ctrl+B`.
+- **Salida limpia**: `SIGTERM`/`SIGHUP`/`SIGQUIT`/`SIGINT` restauran la
+  terminal y salen con código 0, sin dejar la consola en crudo ni el cursor
+  escondido.
+- **Instalador** que crea `~/Música/Nébula` para las descargas (respeta
+  `XDG_MUSIC_DIR`).
 
 ## Instalación
 
