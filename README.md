@@ -262,7 +262,37 @@ cargo clippy                # 0 avisos
 ## Hecho con
 
 [Ratatui](https://ratatui.rs) · [crossterm](https://github.com/crossterm-rs/crossterm) ·
-[sysinfo](https://docs.rs/sysinfo) · [postgres](https://crates.io/crates/postgres) ·
-[image](https://crates.io/crates/image)
+[tui-term](https://github.com/a-kenji/tui-term) · [sysinfo](https://github.com/GuillaumeGomez/sysinfo) ·
+[postgres](https://crates.io/crates/postgres) · [image](https://crates.io/crates/image)
+
+## Agradecimientos
+
+Nébula no salió de la nada: se apoya en proyectos de otros que hacen el
+trabajo duro. Les debo esto.
+
+- **[cliamp](https://github.com/bjarneo/cliamp)** — reproductor de música de
+  terminal al estilo Winamp. Vive **embebido en el panel** de Entretenimiento
+  conservando todas sus teclas, con su menú de emisoras (`g`), su descargador
+  y su chip `♪` en la barra de estado. Nébula lo siembra, lo enseña y no se
+  mete en su camino.
+- **[ani-cli](https://github.com/pystardust/ani-cli)** — ver anime desde la
+  terminal. Nébula lo invoca para reproducir lo que buscas en AniList, sin
+  salir del TUI.
+- **[cmus](https://github.com/cmus/cmus)** — el reproductor clásico. Al
+  arrancar, Nébula siembra su biblioteca desde `~/Música` si la encuentra en
+  blanco.
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — el motor del descargador de
+  música por URL (`d`), con metadatos embebidos.
+- **[AniList](https://anilist.co)** — su API pública devuelve las fichas de
+  anime (título, año, episodios y nota).
+- **[wttr.in](https://github.com/chubin/wttr.in)** — el clima del widget de
+  Inicio, sin clave ni registro.
+- **[timg](https://github.com/hzeller/timg)** — visor de imágenes de terminal:
+  lo único que no puede vivir dentro de un panel.
+
+Y a la **[neofetch](https://github.com/dylanaraps/neofetch)**, la inspiración
+original: el clásico que enseñó que un terminal puede ser bonito por deporte.
+Nébula empieza justo ahí — estética con un punto de utilidad — y al final le
+fui agregando cosas.
 
 Licencia MIT.
