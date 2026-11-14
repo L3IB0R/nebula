@@ -1,0 +1,12 @@
+#!/bin/sh
+# Nébula · postrm
+set -e
+
+case "$1" in
+  purge)
+    # Nébula nunca creó la configuración del usuario desde el paquete,
+    # así que ~/.config/nebula se conserva a propósito: sus datos son suyos.
+    ;;
+esac
+
+exit 0

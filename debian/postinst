@@ -1,0 +1,13 @@
+#!/bin/sh
+# Nébula · postinst
+set -e
+
+case "$1" in
+  configure)
+    # Config por defecto en la primera ejecución; aquí sólo avisamos.
+    echo "Nébula instalada. Ejecuta 'nebula' en una terminal (mínimo 80x24)."
+    echo "Atajos: Ctrl+K lanzador · Tab módulos · ? ayuda · F2 ajustes."
+    ;;
+esac
+
+exit 0

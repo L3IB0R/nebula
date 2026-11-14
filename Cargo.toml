@@ -1,0 +1,51 @@
+[package]
+name = "nebula"
+version = "0.7.0"
+edition = "2021"
+description = "Nébula — centro de mando TUI para Debian/Ubuntu"
+license = "MIT"
+repository = "https://github.com/L3IB0R/nebula"
+homepage = "https://nebula-tui.surge.sh"
+readme = "README.md"
+authors = ["akaomi"]
+keywords = ["tui", "monitoring", "music", "launcher", "terminal"]
+categories = ["command-line-utilities", "multimedia::audio"]
+
+[dependencies]
+ratatui = "0.30"
+crossterm = "0.29"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+chrono = "0.4"
+libc = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+postgres = "0.19"
+sysinfo = "0.40"
+tui-term = "0.3.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+
+# ── Paquete .deb (cargo deb) ──────────────────────────────────────────────
+[package.metadata.deb]
+maintainer = "akaomi"
+copyright = "2026 akaomi"
+extended-description = """
+Nébula es un centro de mando TUI para Debian/Ubuntu: un segundo escritorio
+visual en la terminal con reloj, monitor de sistema, lanzador de aplicaciones,
+música (cmus/cliamp), red, docker, paquetes, servicios, notas, temas y tu
+fondo de pantalla real dibujado con semibloques truecolor.
+"""
+section = "utils"
+priority = "optional"
+depends = "$auto, libc6"
+recommends = "git, cmus, flatpak, curl, yt-dlp, ffmpeg, brightnessctl"
+maintainer-scripts = "debian"
+assets = [
+    ["target/release/nebula", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/nebula/README.md", "644"],
+    ["LICENSE", "usr/share/doc/nebula/LICENSE", "644"],
+]

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nébula · un segundo escritorio visual para tu terminal</title>
+<meta name="description" content="Nébula es una TUI en Rust para Debian/Ubuntu: reloj, monitor de sistema, lanzador de apps, música, red, docker, paquetes, servicios, notas, temas y tu fondo de pantalla real dentro de la terminal.">
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#0d1322; --panel:rgba(18,24,42,.72);
+    --line:rgba(126,160,255,.18); --fg:#e7ecff; --dim:#9aa6c9; --faint:#5f6a8f;
+    --accent:#7ea0ff; --accent2:#59e0c8; --ok:#5ee08a; --warn:#ffc466; --pink:#ff8ad8;
+    --mono:ui-monospace,"JetBrains Mono","Fira Code",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6; overflow-x:hidden;
+  }
+  /* ── Fondo: nebulosa + estrellas ── */
+  #stars{position:fixed; inset:0; z-index:0; pointer-events:none}
+  .neb{
+    position:fixed; z-index:0; pointer-events:none; filter:blur(70px); opacity:.5;
+    border-radius:50%;
+  }
+  .n1{width:52vw;height:52vw;left:-14vw;top:-16vw;background:radial-gradient(circle,#2a49b8,transparent 66%);animation:drift1 34s ease-in-out infinite}
+  .n2{width:46vw;height:46vw;right:-12vw;top:8vh;background:radial-gradient(circle,#12786c,transparent 66%);animation:drift2 41s ease-in-out infinite}
+  .n3{width:40vw;height:40vw;left:26vw;bottom:-18vw;background:radial-gradient(circle,#8f3fa8,transparent 68%);opacity:.34;animation:drift3 52s ease-in-out infinite}
+  @keyframes drift1{50%{transform:translate3d(7vw,5vh,0) scale(1.12)}}
+  @keyframes drift2{50%{transform:translate3d(-6vw,7vh,0) scale(1.08)}}
+  @keyframes drift3{50%{transform:translate3d(5vw,-6vh,0) scale(1.14)}}
+
+  .wrap{position:relative; z-index:1; max-width:1120px; margin:0 auto; padding:0 22px}
+
+  /* ── Barra superior ── */
+  header{
+    position:sticky; top:0; z-index:20; backdrop-filter:blur(14px);
+    background:linear-gradient(180deg,rgba(10,14,26,.92),rgba(10,14,26,.55));
+    border-bottom:1px solid var(--line);
+  }
+  .bar{max-width:1120px;margin:0 auto;padding:13px 22px;display:flex;align-items:center;gap:14px}
+  .brand{font-weight:800;letter-spacing:.16em;font-size:.94rem}
+  .brand i{color:var(--accent2);font-style:normal}
+  .bar nav{margin-left:auto;display:flex;gap:20px;font-size:.86rem}
+  .bar a{color:var(--dim);text-decoration:none;transition:.2s}
+  .bar a:hover{color:var(--fg)}
+
+  /* ── Hero ── */
+  .hero{padding:74px 0 40px; text-align:center}
+  .pill{
+    display:inline-flex;align-items:center;gap:9px;font-size:.74rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent2);border:1px solid var(--line);
+    background:rgba(89,224,200,.07);padding:6px 15px;border-radius:999px;margin-bottom:26px;
+  }
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 10px var(--accent2);animation:blink 2.2s infinite}
+  @keyframes blink{50%{opacity:.28}}
+  h1{
+    font-size:clamp(2.6rem,7vw,4.6rem);line-height:1.03;margin:0 0 20px;
+    letter-spacing:-.03em;font-weight:800;
+    background:linear-gradient(96deg,#fff 8%,var(--accent) 44%,var(--accent2) 78%,var(--pink));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    background-size:220% 100%; animation:sweep 9s ease-in-out infinite alternate;
+  }
+  @keyframes sweep{to{background-position:100% 0}}
+  .lead{max-width:660px;margin:0 auto;color:var(--dim);font-size:1.06rem}
+  .cta{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-top:32px}
+  .btn{
+    display:inline-block;padding:12px 24px;border-radius:11px;font-size:.93rem;
+    font-weight:600;text-decoration:none;transition:.22s;border:1px solid transparent;
+  }
+  .btn-p{background:linear-gradient(96deg,var(--accent),var(--accent2));color:#06101f;box-shadow:0 8px 30px -10px var(--accent)}
+  .btn-p:hover{transform:translateY(-2px);box-shadow:0 14px 38px -12px var(--accent)}
+  .btn-s{border-color:var(--line);color:var(--fg);background:rgba(255,255,255,.03)}
+  .btn-s:hover{border-color:var(--accent);background:rgba(126,160,255,.09)}
+
+  /* ── Terminal ── */
+  .term-shell{margin-top:52px;position:relative}
+  .term{
+    background:rgba(7,10,20,.9);border:1px solid var(--line);border-radius:15px;
+    box-shadow:0 40px 90px -30px #000, 0 0 0 1px rgba(255,255,255,.02) inset;
+    overflow:hidden;text-align:left;
+  }
+  .term-top{
+    display:flex;align-items:center;gap:8px;padding:10px 15px;
+    background:rgba(255,255,255,.035);border-bottom:1px solid var(--line);
+  }
+  .term-top span{width:11px;height:11px;border-radius:50%;background:#33405e}
+  .term-top span:nth-child(1){background:#ff5f57}.term-top span:nth-child(2){background:#febc2e}.term-top span:nth-child(3){background:#28c840}
+  .term-top b{margin-left:10px;font-size:.76rem;color:var(--faint);font-weight:500;font-family:var(--mono)}
+  pre{
+    margin:0;padding:20px 22px;font-family:var(--mono);font-size:.78rem;line-height:1.5;
+    color:#c8d3f5;overflow-x:auto;white-space:pre;
+  }
+  .c-dim{color:#4c567a}.c-acc{color:var(--accent)}.c-cy{color:var(--accent2)}
+  .c-ok{color:var(--ok)}.c-wa{color:var(--warn)}.c-pk{color:var(--pink)}.c-wh{color:#fff;font-weight:600}
+  .glow{text-shadow:0 0 12px rgba(126,160,255,.55)}
+
+  /* ── Secciones ── */
+  section{padding:66px 0}
+  .sec-h{text-align:center;margin-bottom:44px}
+  .sec-h h2{font-size:clamp(1.7rem,3.6vw,2.5rem);margin:0 0 12px;letter-spacing:-.02em}
+  .sec-h p{color:var(--dim);max-width:600px;margin:0 auto}
+  .kicker{font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent2);margin-bottom:11px}
+
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(255px,1fr))}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:22px;
+    backdrop-filter:blur(12px);transition:.28s;position:relative;overflow:hidden;
+  }
+  .card::after{
+    content:"";position:absolute;inset:0;border-radius:15px;opacity:0;transition:.3s;
+    background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(126,160,255,.14),transparent 62%);
+  }
+  .card:hover{transform:translateY(-4px);border-color:rgba(126,160,255,.42)}
+  .card:hover::after{opacity:1}
+  .ico{
+    width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+    font-size:1.2rem;margin-bottom:14px;background:rgba(126,160,255,.12);
+    border:1px solid rgba(126,160,255,.26);
+  }
+  .card h3{margin:0 0 7px;font-size:1rem}
+  .card p{margin:0;color:var(--dim);font-size:.9rem}
+
+  /* ── Capturas ── */
+  .shots{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+  .shot{
+    display:block;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:#05070d;position:relative;transition:.28s;
+  }
+  .shot:hover{transform:translateY(-4px);border-color:rgba(126,160,255,.5);box-shadow:0 18px 44px rgba(0,0,0,.5)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot span{
+    position:absolute;left:0;right:0;bottom:0;padding:20px 14px 10px;font-size:.78rem;
+    color:#dbe4ff;font-family:var(--mono);background:linear-gradient(transparent,rgba(4,7,14,.94));
+  }
+
+  /* ── Atajos ── */
+  .keys{display:grid;gap:11px;grid-template-columns:repeat(auto-fit,minmax(310px,1fr))}
+  .key{
+    display:flex;align-items:center;gap:14px;background:var(--panel);
+    border:1px solid var(--line);border-radius:11px;padding:12px 16px;backdrop-filter:blur(10px);
+  }
+  .key kbd{
+    font-family:var(--mono);font-size:.76rem;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.13);border-bottom-width:2px;border-radius:6px;
+    padding:3px 9px;color:var(--fg);white-space:nowrap;
+  }
+  .key span{color:var(--dim);font-size:.88rem}
+
+  /* ── Temas ── */
+  .themes{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+  .theme{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:var(--panel);transition:.25s}
+  .theme:hover{transform:translateY(-4px);border-color:rgba(126,160,255,.45)}
+  .sw{height:74px;display:flex;align-items:flex-end;padding:9px;gap:6px;font-family:var(--mono);font-size:.7rem;color:rgba(255,255,255,.72)}
+  .sw i{width:13px;height:13px;border-radius:50%;display:block}
+  .theme b{display:block;padding:10px 13px;font-size:.86rem;font-weight:600}
+  .theme small{display:block;padding:0 13px 11px;color:var(--faint);font-family:var(--mono);font-size:.71rem}
+
+  /* ── Instalar ── */
+  .install{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;backdrop-filter:blur(10px)}
+  .step .n{
+    display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;
+    background:linear-gradient(96deg,var(--accent),var(--accent2));color:#06101f;
+    font-size:.8rem;font-weight:800;margin-bottom:11px;
+  }
+  .step h3{margin:0 0 8px;font-size:.97rem}
+  .step code{
+    display:block;font-family:var(--mono);font-size:.8rem;background:rgba(0,0,0,.42);
+    border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--accent2);
+    overflow-x:auto;white-space:pre;
+  }
+  .step p{margin:9px 0 0;color:var(--dim);font-size:.86rem}
+
+  .note{
+    margin-top:26px;background:rgba(89,224,200,.06);border:1px solid rgba(89,224,200,.24);
+    border-radius:13px;padding:16px 20px;color:var(--dim);font-size:.9rem;
+  }
+  .note b{color:var(--accent2)}
+
+  /* ── Footer ── */
+  footer{border-top:1px solid var(--line);padding:34px 0 46px;margin-top:34px;text-align:center;color:var(--faint);font-size:.85rem}
+  footer .heart{color:var(--pink)}
+  footer a{color:var(--dim);text-decoration:none}
+  footer a:hover{color:var(--accent)}
+  .stack{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:15px}
+  .stack span{font-family:var(--mono);font-size:.72rem;border:1px solid var(--line);border-radius:999px;padding:4px 12px;color:var(--dim)}
+
+  @media (max-width:640px){
+    .bar nav{display:none}
+    .hero{padding-top:48px}
+    pre{font-size:.66rem;padding:15px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+<div class="neb n1"></div><div class="neb n2"></div><div class="neb n3"></div>
+
+<header>
+  <div class="bar">
+    <div class="brand">✦ NÉ<i>BULA</i></div>
+    <nav>
+      <a href="#modulos">Módulos</a>
+      <a href="#capturas">Capturas</a>
+      <a href="#atajos">Atajos</a>
+      <a href="#temas">Temas</a>
+      <a href="#instalar">Instalar</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="pill"><span class="dot"></span> TUI · Debian / Ubuntu · Rust</div>
+    <h1>Un segundo escritorio<br>visual para tu terminal</h1>
+    <p class="lead">
+      Nébula no es una consola de hacker: es un panel de cristal esmerilado donde viven
+      tu reloj, tu música, tus proyectos y tu sistema — <b>con tu fondo de pantalla real
+      detrás</b>, dibujado píxel a píxel dentro de la terminal.
+    </p>
+    <div class="cta">
+      <a class="btn btn-p" href="#instalar">Instalar Nébula</a>
+      <a class="btn btn-s" href="#modulos">Ver qué hace</a>
+    </div>
+
+    <div class="term-shell">
+      <div class="term">
+        <div class="term-top"><span></span><span></span><span></span><b>nebula — 120×40</b></div>
+<pre><span class="c-dim">│</span> <span class="c-wh glow">NÉBULA</span>   AnduinOS 2.0.5 · akaomi-laptop      <span class="c-cy">sábado, 7 de noviembre</span>   <span class="c-acc">◈ Aurora</span><span class="c-dim">                         │</span>
+<span class="c-dim">│</span> <span class="c-cy">── GENERAL</span>      <span class="c-dim">▀▀▀▀▀╭ ♪  Música ─────────────────────────╮</span><span class="c-dim">╭ ❖  Proyectos ─────────────╮               │</span>
+<span class="c-dim">│</span> <span class="c-acc">⌂ Inicio</span>        <span class="c-dim">▀▀▀▀▀│</span> <span class="c-ok">▶</span> Loving You                    <span class="c-dim">││</span> <span class="c-cy">▸ nebula</span>    <span class="c-pk">[rust]</span>       <span class="c-dim">│                   │</span>
+<span class="c-dim">│</span> <span class="c-cy">── SISTEMA</span>      <span class="c-dim">▀▀▀▀▀│</span>   Sade · 4:12 · <span class="c-dim">cliamp</span>            <span class="c-dim">││</span> <span class="c-cy">▸ Reproductor</span> <span class="c-pk">[vite]</span>     <span class="c-dim">│                 │</span>
+<span class="c-dim">│</span> <span class="c-acc">◉ Sistema</span>       <span class="c-dim">▀▀▀▀▀│</span>   <span class="c-dim">███▃▂▂▁▂▃▅▆▇█▅▃▂</span>              <span class="c-dim">││</span> <span class="c-cy">▸ estructura</span>                <span class="c-dim">│                │</span>
+<span class="c-dim">│</span> <span class="c-acc">⇄ Red</span>           <span class="c-dim">▀▀▀▀▀╰──────────────────────────────╯││</span> <span class="c-cy">▸ Solitude</span>                  <span class="c-dim">│                  │</span>
+<span class="c-dim">│</span> <span class="c-acc">⬡ Paquetes</span>  <span class="c-wa">12</span>  <span class="c-dim">▀▀▀▀▀╭ ◉  Sistema ────────────────────╮││</span> <span class="c-cy">▸ Sonido</span>                    <span class="c-dim">│                │</span>
+<span class="c-dim">│</span> <span class="c-acc">⚙ Servicios</span>  <span class="c-wa">32</span> <span class="c-dim">▀▀▀▀▀│</span> CPU   <span class="c-ok">7.1%</span> <span class="c-ok">██</span><span class="c-dim">···························</span>   <span class="c-dim">││</span> <span class="c-cy">▸ trazo</span>                      <span class="c-dim">│    │</span>
+<span class="c-dim">│</span> <span class="c-acc">▣ Contenedores</span>  <span class="c-dim">▀▀▀▀▀│</span> RAM  <span class="c-wa">35.9%</span> <span class="c-wa">███████████</span><span class="c-dim">···············</span>   <span class="c-dim">││</span> <span class="c-dim">╰────────────────────────────╯       │</span>
+<span class="c-dim">│</span> <span class="c-cy">── CÓDIGO</span>       <span class="c-dim">▀▀▀▀▀│</span> 2.7 GB · 7.6 GB · up <span class="c-cy">1d 2h</span>       <span class="c-dim">││</span> <span class="c-dim">╭ ⇄  Red ────────────────────╮              │</span>
+<span class="c-dim">│</span> <span class="c-acc">❖ Proyectos</span>  <span class="c-wa">6</span>  <span class="c-dim">▀▀▀▀▀│</span> 🌡 iwlwifi_1 &nbsp;&nbsp;<span class="c-cy">36 °C</span>            <span class="c-dim">││</span> <span class="c-dim">│</span> ↓ <span class="c-wh">1.2 MB/s</span>  ↑ <span class="c-wh">84 KB/s</span>    <span class="c-dim">│                  │</span>
+<span class="c-dim">│</span> <span class="c-acc">⎇ Git</span>           <span class="c-dim">▀▀▀▀▀│</span> kernel <span class="c-dim">7.0.0-42-generic</span>          <span class="c-dim">││</span> <span class="c-dim">│</span> wlo1 · ethernet           <span class="c-dim">│               │</span>
+<span class="c-dim">│</span> <span class="c-acc">◈ Desarrollo</span>    <span class="c-dim">▀▀▀▀▀╰──────────────────────────────╯││</span> <span class="c-dim">│</span> <span class="c-dim">▁▂▄▆█▅▃▂▄▇█▆▄▂▃▅▇█▅▃▂▁</span>     <span class="c-dim">│                 │</span>
+<span class="c-dim">│</span> <span class="c-cy">── OCIO</span>         <span class="c-dim">▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</span>                                 <span class="c-dim">╰────────────────────────────╯ │</span>
+<span class="c-dim">│</span> <span class="c-acc">★ Entretenimiento</span> <span class="c-dim">▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</span><span class="c-dim">       │</span>
+<span class="c-dim">│</span> <span class="c-acc">✎ Notas</span>         <span class="c-dim">▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</span><span class="c-dim">         │</span>
+<span class="c-dim">│</span> <span class="c-cy">── CONFIGURACIÓN</span> <span class="c-dim">▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</span><span class="c-dim">        │</span>
+<span class="c-dim">│</span> <span class="c-acc">☾ Ajustes</span>       <span class="c-dim">▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀</span><span class="c-dim">         │</span>
+<span class="c-dim">│</span> <span class="c-dim">▾</span> <span class="c-acc">buenas noches, akaomi</span> <span class="c-pk">✦</span>  <span class="c-dim">viernes, 6 de noviembre de 2026</span>        <span class="c-dim">q salir  ? ayuda  ctrl+k lanzador    │</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Módulos ── -->
+  <section id="modulos">
+    <div class="sec-h">
+      <div class="kicker">Todo de golpe</div>
+      <h2>Doce módulos, agrupados por secciones</h2>
+      <p>Se cambia con <kbd style="font-family:var(--mono);font-size:.8em">Tab</kbd> o con la barra lateral al clicar.
+         El lateral los agrupa en <b>general · sistema · código · ocio · configuración</b> y su foco salta las
+         cabeceras. El pie de atajos es el mismo en todas las pestañas. Nada bloquea el render:
+         los datos llegan por hilos de fondo a 60 fps.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ico">⌂</div><h3>Inicio</h3><p>Reloj con <b>cinco estilos</b> —digital, una línea, tablero de aeropuerto, analógico y mínimo— y cinco tamaños. Saludo, clima en vivo y los widgets que tú quieras: siete disponibles, con mostrar/ocultar y varias formas.</p></div>
+      <div class="card"><div class="ico">◉</div><h3>Sistema</h3><p>CPU con histórico y núcleos en vivo, memoria, discos, temperaturas, kernel y GPU. Los procesos llevan <b>micro-barras por fila</b> y el realce del que más come; los filtra <code style="font-family:var(--mono)">f</code> (cpu &gt;1%, míos) o <code style="font-family:var(--mono)">/</code> por nombre, y <code style="font-family:var(--mono)">m</code> abre el menú de orden, matar y refrescar — todo con confirmación.</p></div>
+      <div class="card"><div class="ico">❖</div><h3>Proyectos</h3><p>Escanea tu home y detecta React, Vite, Next, Rust, Python, Prisma y Go por sus marcadores, con guías y scripts de <code style="font-family:var(--mono)">package.json</code>.</p></div>
+      <div class="card"><div class="ico">⎇</div><h3>Git</h3><p>Una <b>tira de dos filas con todo a la vista</b>: <code style="font-family:var(--mono)">enter</code> estatus, <code style="font-family:var(--mono)">a</code> añadir (casilla por ruta, <b>nunca <code style="font-family:var(--mono)">git add .</code></b>), <code style="font-family:var(--mono)">u</code> quitar del stage, <code style="font-family:var(--mono)">c</code> commit con tipo en español, <code style="font-family:var(--mono)">b</code> ramas, <code style="font-family:var(--mono)">s</code> stash, <code style="font-family:var(--mono)">l</code> log, <code style="font-family:var(--mono)">f</code> fetch, <code style="font-family:var(--mono)">d</code> diff, <code style="font-family:var(--mono)">p</code>/<code style="font-family:var(--mono)">P</code> pull/push y <code style="font-family:var(--mono)">k</code> clonar por URL — todo leído dentro de Nébula.</p></div>
+      <div class="card"><div class="ico">◈</div><h3>Desarrollo</h3><p>Bases de datos PostgreSQL: tablas, columnas, contadores y prueba de conexión en vivo desde el propio módulo.</p></div>
+      <div class="card"><div class="ico">⇄</div><h3>Red</h3><p>Bajada y subida con histórico anclado a la derecha, dispositivos, conexiones <code style="font-family:var(--mono)">nmcli</code>, puertos <code style="font-family:var(--mono)">ss</code> y ping. Los filtros (<code style="font-family:var(--mono)">f</code> escuchando · establecidas) y la búsqueda de puerto o nombre (<code style="font-family:var(--mono)">/</code>) viven en el propio título.</p></div>
+      <div class="card"><div class="ico">▣</div><h3>Contenedores</h3><p>Docker o Podman: imágenes, contenedores, arranque, parada y borrado — siempre con modal de confirmación.</p></div>
+      <div class="card"><div class="ico">⬡</div><h3>Paquetes</h3><p>Lo actualizable en <code style="font-family:var(--mono)">apt</code>, <code style="font-family:var(--mono)">flatpak</code> y <code style="font-family:var(--mono)">snap</code>, con actualización segura por <code style="font-family:var(--mono)">pkexec</code>. El panel <b>«Operaciones apt» está siempre visible</b> —<code style="font-family:var(--mono)">m</code> lo enfoca y las flechas eligen— y con <code style="font-family:var(--mono)">i</code> escribes los nombres aquí dentro: <b>una sola contraseña y la salida en el visor</b>, sin abrir una terminal.</p></div>
+      <div class="card"><div class="ico">⚙</div><h3>Servicios</h3><p><code style="font-family:var(--mono)">systemctl</code> completo: buscar con <code style="font-family:var(--mono)">/</code>, arrancar, parar y recargar con contador de los que van en marcha. Con <code style="font-family:var(--mono)">enter</code> ves el estado del servicio en el visor interno, sin <code style="font-family:var(--mono)">read -rp</code> ni terminal aparte.</p></div>
+      <div class="card"><div class="ico">✎</div><h3>Notas</h3><p>Bloc dentro de Nébula. Lee con las flechas, <code style="font-family:var(--mono)">i</code> para editar, <code style="font-family:var(--mono)">Ctrl+S</code> para guardar. Tab cambia de módulo.</p></div>
+      <div class="card"><div class="ico">☾</div><h3>Ajustes</h3><p>Ocho categorías —Temas, Apariencia, Reloj, Widgets, <b>Clima</b>, Sistema, <b>Recursos</b> y <b>Terminal</b>— con controles visibles: deslizadores, ◉/○ y selectores. En Clima eliges el lugar a mano o por país → ciudad; Recursos lista lo que te falta con ✓/✗ y lo instala con un solo <code style="font-family:var(--mono)">pkexec</code>; <b>Terminal</b> junta tu sesión, los dos terminales embebidos, <b>detener</b> cmus y cliamp, un <b>deslizador de brillo</b> con <code style="font-family:var(--mono)">+ / −</code>, el <b>modo terminal</b> (Nébula termina y <code style="font-family:var(--mono)">pkexec systemctl isolate</code> se ejecuta en la TTY, donde pregunta la contraseña en una terminal de verdad) y el reinicio.</p></div>
+      <div class="card"><div class="ico">★</div><h3>Entretenimiento</h3><p>Anime y vídeo <b>buscados dentro de la propia TUI</b>: escribes el nombre, eliges de la lista —con año, episodios y nota— y la reproducción arranca desde Nébula con <code style="font-family:var(--mono)">ani-cli</code> o <code style="font-family:var(--mono)">mpv</code>; imágenes con <code style="font-family:var(--mono)">timg</code>. Y aquí vive <b>la música completa</b>: el reproductor embebido (<code style="font-family:var(--mono)">espacio</code> play/pausa, <code style="font-family:var(--mono)">m</code> menú con el grupo <code style="font-family:var(--mono)">♪ cliamp · online</code>), <b><code style="font-family:var(--mono)">t</code> el terminal de cmus o de cliamp dentro de un panel</b> —con todas sus teclas—, <b><code style="font-family:var(--mono)">g</code> el menú nativo de emisoras y géneros</b> y <b><code style="font-family:var(--mono)">d</code> el descargador de música por URL</b>.</p></div>
+    </div>
+  </section>
+
+  <!-- ── Capturas ── -->
+  <section id="capturas">
+    <div class="sec-h">
+      <div class="kicker">La cara real</div>
+      <h2>Así se ve Nébula</h2>
+      <p>Capturas automáticas del propio TUI (<code style="font-family:var(--mono)">scripts/shots.py</code>):
+         tu fondo de verdad, el clima en español y todo lo que hay dentro.</p>
+    </div>
+    <div class="shots">
+      <a class="shot" href="shots/01-inicio.png" target="_blank"><img src="shots/01-inicio.png" alt="Inicio: reloj, clima y tarjetas" loading="lazy"><span>01 · Inicio — reloj, clima y tarjetas</span></a>
+      <a class="shot" href="shots/02-sistema.png" target="_blank"><img src="shots/02-sistema.png" alt="Sistema: CPU, memoria y procesos" loading="lazy"><span>02 · Sistema — históricos y procesos</span></a>
+      <a class="shot" href="shots/03-entretenimiento.png" target="_blank"><img src="shots/03-entretenimiento.png" alt="Entretenimiento con el reproductor embebido" loading="lazy"><span>03 · Entretenimiento — reproductor embebido y búsqueda</span></a>
+      <a class="shot" href="shots/04-ajustes.png" target="_blank"><img src="shots/04-ajustes.png" alt="Ajustes de temas y apariencia" loading="lazy"><span>04 · Ajustes — temas y apariencia</span></a>
+      <a class="shot" href="shots/05-lanzador.png" target="_blank"><img src="shots/05-lanzador.png" alt="Lanzador de aplicaciones" loading="lazy"><span>05 · Lanzador — apps, comandos y carpetas</span></a>
+      <a class="shot" href="shots/06-zen.png" target="_blank"><img src="shots/06-zen.png" alt="Modo zen" loading="lazy"><span>06 · Modo zen (F11) — sólo tú y el fondo</span></a>
+      <a class="shot" href="shots/07-lateral-colapsada.png" target="_blank"><img src="shots/07-lateral-colapsada.png" alt="Barra lateral colapsada" loading="lazy"><span>07 · Lateral colapsada (Ctrl+B) — sólo iconos</span></a>
+      <a class="shot" href="shots/08-ayuda.png" target="_blank"><img src="shots/08-ayuda.png" alt="Ayuda de atajos" loading="lazy"><span>08 · Ayuda — todos los atajos dentro</span></a>
+      <a class="shot" href="shots/09-reloj-tablero.png" target="_blank"><img src="shots/09-reloj-tablero.png" alt="Reloj de tablero split-flap" loading="lazy"><span>09 · Reloj de tablero — el split-flap de los 60</span></a>
+      <a class="shot" href="shots/10-recursos.png" target="_blank"><img src="shots/10-recursos.png" alt="Ajustes → Recursos" loading="lazy"><span>10 · Recursos — ✓/✗ e instalar de un golpe</span></a>
+
+      <a class="shot" href="shots/00-splash.png" target="_blank"><img src="shots/00-splash.png" alt="Pantalla de arranque" loading="lazy"><span>00 · Arranque — el análisis, con Esc para saltar</span></a>
+
+      <a class="shot" href="shots/11-foco-lateral.png" target="_blank"><img src="shots/11-foco-lateral.png" alt="Foco en la barra lateral" loading="lazy"><span>11 · Foco lateral (Ctrl+E) — eliges con ↑/↓</span></a>
+
+      <a class="shot" href="shots/12-clima.png" target="_blank"><img src="shots/12-clima.png" alt="Ajustes → Clima" loading="lazy"><span>12 · Clima — lugar a mano o país → ciudad</span></a>
+
+      <a class="shot" href="shots/13-entretenimiento.png" target="_blank"><img src="shots/13-entretenimiento.png" alt="Pestaña Entretenimiento" loading="lazy"><span>13 · Entretenimiento — anime, vídeo, música e imágenes</span></a>
+
+      <a class="shot" href="shots/14-menu-git.png" target="_blank"><img src="shots/14-menu-git.png" alt="Menú de commit de git" loading="lazy"><span>14 · Git — commit con tipo en español</span></a>
+
+      <a class="shot" href="shots/15-visor-git.png" target="_blank"><img src="shots/15-visor-git.png" alt="Visor interno con git status" loading="lazy"><span>15 · Visor interno — git status se ejecuta y se lee aquí dentro</span></a>
+
+      <a class="shot" href="shots/16-buscar-anime.png" target="_blank"><img src="shots/16-buscar-anime.png" alt="Búsqueda de anime dentro de Nébula" loading="lazy"><span>16 · Buscar anime — resultados de AniList dentro de la TUI</span></a>
+
+      <a class="shot" href="shots/17-git-tira.png" target="_blank"><img src="shots/17-git-tira.png" alt="Git con su tira de acciones" loading="lazy"><span>17 · Git — la tira de acciones, siempre a la vista</span></a>
+
+      <a class="shot" href="shots/18-paquetes-apt.png" target="_blank"><img src="shots/18-paquetes-apt.png" alt="Paquetes con el panel de operaciones apt" loading="lazy"><span>18 · Paquetes — «Operaciones apt» a un clic</span></a>
+
+      <a class="shot" href="shots/19-terminal-cliamp.png" target="_blank"><img src="shots/19-terminal-cliamp.png" alt="Terminal embebido de cliamp dentro de un panel" loading="lazy"><span>19 · Terminal embebido — cmus y cliamp, con sus teclas y Ctrl+G para salir</span></a>
+
+      <a class="shot" href="shots/20-emisoras.png" target="_blank"><img src="shots/20-emisoras.png" alt="Menú nativo de emisoras y géneros" loading="lazy"><span>20 · Emisoras y géneros — radio de cliamp, sin salir de Nébula</span></a>
+    </div>
+  </section>
+
+  <!-- ── Atajos ── -->
+  <section id="atajos">
+    <div class="sec-h">
+      <div class="kicker">Manos en el teclado</div>
+      <h2>Atajos</h2>
+      <p>Las mismas teclas en todos los módulos —y abajo, el pie de atajos de cada pestaña.
+         El ratón también: clic en la barra lateral, rueda para desplazar y clic en el chip <kbd>♪</kbd>.</p>
+    </div>
+    <div class="keys">
+      <div class="key"><kbd>Ctrl+K</kbd><kbd>espacio</kbd><span>Abrir el lanzador: apps, comandos, carpetas y proyectos</span></div>
+      <div class="key"><kbd>Tab</kbd><kbd>Shift+Tab</kbd><span>Siguiente / anterior módulo</span></div>
+      <div class="key"><kbd>1</kbd>–<kbd>9</kbd><kbd>0</kbd><span>Ir directo a un módulo</span></div>
+      <div class="key"><kbd>?</kbd><kbd>F1</kbd><span>Ayuda de atajos (también desde el lanzador)</span></div>
+      <div class="key"><kbd>F2</kbd><span>Ajustes: ocho categorías (← →) y opciones (↑ ↓ + espacio)</span></div>
+      <div class="key"><kbd>Ctrl+B</kbd><span>Colapsar la barra lateral — o el botón <kbd>⟨/⟩</kbd> de su borde</span></div>
+      <div class="key"><kbd>Ctrl+E</kbd><span>Enfocar la lateral: ↑/↓ elige pestaña <b>(salta las cabeceras de sección)</b>, Intro entra, Esc sale</span></div>
+      <div class="key"><kbd>a</kbd><kbd>u</kbd><kbd>c</kbd><kbd>k</kbd><span>En Git: añadir por ruta (nunca <code style="font-family:var(--mono)">git add .</code>), quitar del stage, commit y clonar por URL</span></div>
+      <div class="key"><kbd>♪</kbd><span>Clic en el chip de la barra de estado: play/pausa desde cualquier pestaña</span></div>
+      <div class="key"><kbd>m</kbd><span>Menú de cada módulo: mismas teclas, misma ventana</span></div>
+      <div class="key"><kbd>t</kbd><span>En Entretenimiento: <b>terminal embebido</b> de cmus o cliamp dentro de un panel, con todas sus teclas</span></div>
+      <div class="key"><kbd>g</kbd><span>Menú nativo de <b>emisoras y géneros</b> de cliamp, con filtro <code style="font-family:var(--mono)">/</code> y actualización <code style="font-family:var(--mono)">r</code></span></div>
+      <div class="key"><kbd>d</kbd><span><b>Descargar música de YouTube</b> por URL: mp3, m4a u opus, y la etiqueta «artista» la pone el canal</span></div>
+      <div class="key"><kbd>Ctrl+G</kbd><span>Salir del panel del terminal — el proceso sigue vivo y vuelve con <code style="font-family:var(--mono)">t</code></span></div>
+      <div class="key"><kbd>Ctrl+Tab</kbd><kbd>Ctrl+O</kbd><span>Cambiar de aplicación dentro del terminal (cmus ↔ cliamp)</span></div>
+      <div class="key"><kbd>Ctrl+T</kbd><span>Detener el proceso del terminal que esté en pantalla</span></div>
+      <div class="key"><kbd>enter</kbd><span>En Git, Paquetes y Servicios: ejecuta y abre el visor interno</span></div>
+      <div class="key"><kbd>Esc</kbd><span>En el visor, cierra la salida — el comando sigue y su resultado llega como aviso</span></div>
+      <div class="key"><kbd>Esc</kbd><span>En el arranque, salta la pantalla de bienvenida</span></div>
+      <div class="key"><kbd>F11</kbd><span>Modo zen: sin bordes, sin títulos, sin ruido</span></div>
+      <div class="key"><kbd>Ctrl+↑</kbd><kbd>Ctrl+↓</kbd><span>Volumen +5% / −5% desde cualquier módulo</span></div>
+      <div class="key"><kbd>Ctrl+Mayús+↑</kbd><span>Brillo +5% / −5% (con brightnessctl)</span></div>
+      <div class="key"><kbd>Ctrl+espacio</kbd><span>Silenciar / devolver el sonido</span></div>
+      <div class="key"><kbd>↑ ↓ ← →</kbd><span>Navegar dentro del módulo actual</span></div>
+      <div class="key"><kbd>f</kbd><span>Filtro del módulo: en Sistema <code style="font-family:var(--mono)">cpu &gt;1%</code> · míos, en Red escuchando · establecidas</span></div>
+      <div class="key"><kbd>/</kbd><span>Filtrar: Paquetes, Servicios y Proyectos — y buscar nombre o puerto en Sistema y Red</span></div>
+      <div class="key"><kbd>espacio</kbd><kbd>f</kbd><span>En Ajustes: mostrar/ocultar widget y cambiar su forma</span></div>
+      <div class="key"><kbd>a</kbd><span>En Ajustes → Recursos: instalar todo lo que falta</span></div>
+      <div class="key"><kbd>q</kbd><kbd>Esc</kbd><span>Salir / cerrar superposiciones</span></div>
+    </div>
+  </section>
+
+  <!-- ── Extras ── -->
+  <section id="extras">
+    <div class="sec-h">
+      <div class="kicker">Detallitos</div>
+      <h2>Lo que lo hace tuyo</h2>
+      <p>Todo opcional: si falta algo, Nébula lo detecta y sigue funcionando igual.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="ico">▣</div><h3>Visor interno</h3><p>git, <code style="font-family:var(--mono)">apt</code>, <code style="font-family:var(--mono)">systemctl</code>, scripts y reproductores se ejecutan en un hilo y su salida se pinta <b>línea a línea dentro de Nébula</b>: scroll, seguimiento de la última línea y <code style="font-family:var(--mono)">Esc</code> para cerrarlo sin matar el comando. <b>No se abre ninguna otra terminal</b> salvo que lo pidas a propósito.</p></div>
+      <div class="card"><div class="ico">☀</div><h3>Clima</h3><p>Tarjeta con <code style="font-family:var(--mono)">wttr.in</code> en español: temperatura, sensación, humedad, viento y tu ciudad. Se consulta en un hilo aparte cada 10 minutos, sin frenar nada.</p></div>
+      <div class="card"><div class="ico">🔊</div><h3>Volumen y brillo</h3><p>Chips vivos en la barra de estado con <code style="font-family:var(--mono)">wpctl</code> y el backlight real. Sube y baja con atajos; si instalas <code style="font-family:var(--mono)">brightnessctl</code> va más fino.</p></div>
+      <div class="card"><div class="ico">☀</div><h3>Brillo de portátil</h3><p>En <b>Ajustes → Terminal</b> hay un <b>deslizador con el brillo real</b> de la pantalla, que se mueve con <code style="font-family:var(--mono)">+ / −</code> o con <code style="font-family:var(--mono)">← / →</code>. Si <code style="font-family:var(--mono)">brightnessctl</code> no está o no puede escribir, Nébula cae a <code style="font-family:var(--mono)">sysfs</code> con <code style="font-family:var(--mono)">pkexec</code> — una operación cada vez, sin bloquear la interfaz.</p></div>
+      <div class="card"><div class="ico">🖥</div><h3>Modo terminal</h3><p>¿Sin escritorio, o prefieres la consola? Desde <b>Ajustes → Terminal</b>, Nébula <b>termina limpiamente</b> y deja <code style="font-family:var(--mono)">pkexec systemctl isolate multi-user.target</code> corriendo en la TTY: la contraseña se pregunta en una terminal de verdad y el cambio de sesión no arrastra la interfaz. Desde la consola, la misma fila vuelve a levantar <code style="font-family:var(--mono)">graphical.target</code>.</p></div>
+      <div class="card"><div class="ico">🔋</div><h3>Batería</h3><p>Lee <code style="font-family:var(--mono)">/sys/class/power_supply</code> sin dependencias: porcentaje, si carga y autonomía estimada. Aviso en rojo por debajo del 20%.</p></div>
+      <div class="card"><div class="ico">☾</div><h3>Modo zen</h3><p><code style="font-family:var(--mono)">F11</code> y desaparecen la barra superior, la lateral, el pie y los bordes de los paneles: sólo el fondo, las estrellas y lo que estés mirando.</p></div>
+      <div class="card"><div class="ico">◈</div><h3>Pywal / Wallust</h3><p>Si usas pywal, activa la casilla <b>pywal</b> en Ajustes y los acentos saldrán de <code style="font-family:var(--mono)">~/.cache/wal/colors.json</code>, sincronizados con tu wallpaper.</p></div>
+      <div class="card"><div class="ico">❖</div><h3>Lanzador con zoxide</h3><p>Si tienes <code style="font-family:var(--mono)">zoxide</code>, tus carpetas frecuentes aparecen primero en el lanzador, ordenadas por lo que visitas.</p></div>
+      <div class="card"><div class="ico">⌘</div><h3>CLI con cara</h3><p><code style="font-family:var(--mono)">nebula --help</code>, <code style="font-family:var(--mono)">--version</code>, <code style="font-family:var(--mono)">--themes</code>, <code style="font-family:var(--mono)">--theme Orquídea</code> y <code style="font-family:var(--mono)">--config</code>. Hasta el arranque es amable.</p></div>
+      <div class="card"><div class="ico">⌨</div><h3>Atajos configurables</h3><p>Lanzador, ayuda, zen, lateral y silencio se reasignan en <code style="font-family:var(--mono)">[keys]</code> de tu <code style="font-family:var(--mono)">config.toml</code>. Con formato <code style="font-family:var(--mono)">ctrl+mayús+f5</code>.</p></div>
+    </div>
+  </section>
+
+  <!-- ── Temas ── -->
+  <section id="temas">
+    <div class="sec-h">
+      <div class="kicker">Seis paletas</div>
+      <h2>Temas con transición</h2>
+      <p>Se cambian sin parpadeos: los colores se interpolan fotograma a fotograma mientras el fondo se recolorea contigo.</p>
+    </div>
+    <div class="themes">
+      <div class="theme"><div class="sw" style="background:#0a0e1a"><i style="background:#7ea0ff"></i><i style="background:#59e0c8"></i><i style="background:#ff8ad8"></i></div><b>Aurora</b><small>#0a0e1a</small></div>
+      <div class="theme"><div class="sw" style="background:#060d14"><i style="background:#4fa8ff"></i><i style="background:#38e0d0"></i><i style="background:#9ad0ff"></i></div><b>Cobalto</b><small>#060d14</small></div>
+      <div class="theme"><div class="sw" style="background:#12100c"><i style="background:#ffb454"></i><i style="background:#ff8a5c"></i><i style="background:#ffe0a3"></i></div><b>Ámbar</b><small>#12100c</small></div>
+      <div class="theme"><div class="sw" style="background:#14100b"><i style="background:#d9a066"></i><i style="background:#b98a5e"></i><i style="background:#f0d3ad"></i></div><b>Sepia</b><small>#14100b</small></div>
+      <div class="theme"><div class="sw" style="background:#0a1210"><i style="background:#6fe0a0"></i><i style="background:#4fd0c0"></i><i style="background:#c8f5d8"></i></div><b>Bosque</b><small>#0a1210</small></div>
+      <div class="theme"><div class="sw" style="background:#120a18"><i style="background:#c98aff"></i><i style="background:#ff8ad8"></i><i style="background:#f0c2ff"></i></div><b>Orquídea</b><small>#120a18</small></div>
+    </div>
+
+    <div class="note">
+      <b>El fondo es real.</b> Nébula lee tu wallpaper — el que ya tienes en el escritorio — y lo
+      dibuja con semibloques <code style="font-family:var(--mono)">▀</code>: el color de primer plano es el píxel
+      superior y el de fondo el inferior. Funciona en cualquier terminal truecolor, sin imágenes
+      sixel ni kitty. Los paneles mezclan su color con lo que hay debajo: cristal esmerilado.
+    </div>
+  </section>
+
+  <!-- ── Instalar ── -->
+  <section id="instalar">
+    <div class="sec-h">
+      <div class="kicker">Tres pasos</div>
+      <h2>Instalar</h2>
+      <p>Compila en release y se instala en tu <code style="font-family:var(--mono)">~/.local/bin</code>. Sin sudo.</p>
+    </div>
+    <div class="install">
+      <div class="step">
+        <div class="n">1</div>
+        <h3>Clona y entra</h3>
+        <code>git clone &lt;repo&gt; &amp;&amp; cd nebula</code>
+        <p>Necesitas Rust (1.75+). Si no lo tienes: <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">rustup</code>.</p>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <h3>Instala</h3>
+        <code>./install.sh</code>
+        <p>O <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">./install.sh --system</code> para /usr/local/bin, o <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">--dev</code> sólo para compilar.</p>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <h3>Ejecuta</h3>
+        <code>nebula</code>
+        <p>Mínimo 80×24; a 120×40 se ve todo de una vez. También hay paquete <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">.deb</code> con <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">cargo deb</code>.</p>
+      </div>
+    </div>
+    <div class="note">
+      <b>Sin dependencias obligatorias.</b> Nébula funciona sola; cada módulo detecta lo que falte
+      y te escribe el comando exacto de instalación dentro de su propio panel
+      (<code style="font-family:var(--mono)">git</code>, <code style="font-family:var(--mono)">cmus</code>, <code style="font-family:var(--mono)">cliamp</code>, <code style="font-family:var(--mono)">yt-dlp</code>, <code style="font-family:var(--mono)">brightnessctl</code>, <code style="font-family:var(--mono)">docker</code>, <code style="font-family:var(--mono)">flatpak</code>, <code style="font-family:var(--mono)">nmcli</code>…).
+      Las acciones que tocan el sistema pasan por un modal de confirmación y <code style="font-family:var(--mono)">pkexec</code>.
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div>✦ Nébula <span class="heart">·</span> hecho con <span class="heart">♥</span> en la terminal</div>
+  <div class="stack">
+    <span>ratatui</span><span>crossterm</span><span>sysinfo</span><span>postgres</span><span>image</span><span>MIT</span>
+  </div>
+  <p style="margin-top:16px"><a href="#modulos">Módulos</a> · <a href="#capturas">Capturas</a> · <a href="#atajos">Atajos</a> · <a href="#extras">Extras</a> · <a href="#instalar">Instalar</a></p>
+</footer>
+
+<script>
+// ── Estrellas titilando ──
+const cv = document.getElementById('stars'), cx = cv.getContext('2d');
+let stars = [];
+function seed(){
+  cv.width = innerWidth; cv.height = innerHeight;
+  const n = Math.min(240, Math.round(innerWidth * innerHeight / 6800));
+  stars = Array.from({length:n}, () => ({
+    x:Math.random()*cv.width, y:Math.random()*cv.height,
+    r:Math.random()*1.3+.25, p:Math.random()*Math.PI*2,
+    s:.006+Math.random()*.017, d:Math.random()*.35+.05
+  }));
+}
+seed(); addEventListener('resize', seed);
+(function loop(t){
+  cx.clearRect(0,0,cv.width,cv.height);
+  for(const st of stars){
+    const a = .22 + Math.abs(Math.sin(t*st.s + st.p)) * .68;
+    cx.globalAlpha = a;
+    cx.fillStyle = st.r > 1.05 ? '#bcd4ff' : '#ffffff';
+    cx.beginPath(); cx.arc(st.x, st.y, st.r, 0, 6.283); cx.fill();
+    st.y += st.d * .12;
+    if(st.y > cv.height + 3) st.y = -3;
+  }
+  requestAnimationFrame(loop);
+})(0);
+
+// ── Brillo que sigue al cursor en las tarjetas ──
+document.querySelectorAll('.card, .shot').forEach(el => {
+  el.addEventListener('pointermove', e => {
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  });
+});
+</script>
+</body>
+</html>
