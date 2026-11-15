@@ -174,6 +174,18 @@
   }
   .step p{margin:9px 0 0;color:var(--dim);font-size:.86rem}
 
+  /* ── Botón copiar ── */
+  .cmd{position:relative}
+  .cmd code{padding-right:78px}
+  .copy{
+    position:absolute;top:7px;right:7px;cursor:pointer;
+    font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--dim);background:rgba(10,14,26,.92);border:1px solid var(--line);
+    border-radius:7px;padding:4px 9px;transition:.18s;
+  }
+  .copy:hover{color:var(--fg);border-color:var(--accent);background:rgba(126,160,255,.16)}
+  .copy.ok{color:var(--ok);border-color:rgba(94,224,138,.5);background:rgba(94,224,138,.13)}
+
   .note{
     margin-top:26px;background:rgba(89,224,200,.06);border:1px solid rgba(89,224,200,.24);
     border-radius:13px;padding:16px 20px;color:var(--dim);font-size:.9rem;
@@ -424,19 +436,28 @@
       <div class="step">
         <div class="n">1</div>
         <h3>Clona y entra</h3>
-        <code>git clone https://github.com/L3IB0R/nebula.git &amp;&amp; cd nebula</code>
+        <div class="cmd">
+          <code>git clone https://github.com/L3IB0R/nebula.git &amp;&amp; cd nebula</code>
+          <button class="copy" type="button" data-copy="git clone https://github.com/L3IB0R/nebula.git &amp;&amp; cd nebula">copiar</button>
+        </div>
         <p>Necesitas Rust (1.75+). Si no lo tienes: <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">rustup</code>.</p>
       </div>
       <div class="step">
         <div class="n">2</div>
         <h3>Instala</h3>
-        <code>./install.sh</code>
+        <div class="cmd">
+          <code>./install.sh</code>
+          <button class="copy" type="button" data-copy="./install.sh">copiar</button>
+        </div>
         <p>O <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">./install.sh --system</code> para /usr/local/bin, o <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">--dev</code> sólo para compilar.</p>
       </div>
       <div class="step">
         <div class="n">3</div>
         <h3>Ejecuta</h3>
-        <code>nebula</code>
+        <div class="cmd">
+          <code>nebula</code>
+          <button class="copy" type="button" data-copy="nebula">copiar</button>
+        </div>
         <p>Mínimo 80×24; a 120×40 se ve todo de una vez. También hay paquete <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">.deb</code> con <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">cargo deb</code>, o el <b>binario ya compilado</b> en <a href="https://github.com/L3IB0R/nebula/releases/latest" target="_blank" rel="noopener">Releases</a> — lo copias a <code style="font-family:var(--mono);background:none;border:0;padding:0;color:var(--dim)">~/.local/bin</code> y listo.</p>
       </div>
     </div>
@@ -492,6 +513,34 @@ document.querySelectorAll('.card, .shot').forEach(el => {
     const r = el.getBoundingClientRect();
     el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
     el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  });
+});
+
+// ── Botones «copiar» de la sección Instalar ──
+document.querySelectorAll('.copy').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const txt = btn.dataset.copy || '';
+    let ok = true;
+    try {
+      await navigator.clipboard.writeText(txt);
+    } catch (e) {
+      // Respaldo: sin portapapeles o sin permiso, el truco de siempre.
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      ta.remove();
+    }
+    const old = btn.textContent;
+    btn.textContent = ok ? '✓ copiado' : '✗ error';
+    btn.classList.toggle('ok', ok);
+    setTimeout(() => {
+      btn.textContent = old;
+      btn.classList.remove('ok');
+    }, 1600);
   });
 });
 </script>
