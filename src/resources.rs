@@ -68,6 +68,16 @@ pub const SECTIONS: &[Section] = &[
         ],
     },
     Section {
+        icon: "★",
+        name: "entretenimiento",
+        items: &[
+            it("ani-cli", "ani-cli", "ani-cli (anime)"),
+            it("mpv", "mpv", "mpv (reproductor)"),
+            it("fzf", "fzf", "fzf (menús)"),
+            it("timg", "timg", "timg (imágenes)"),
+        ],
+    },
+    Section {
         icon: "⚙",
         name: "sistema",
         items: &[

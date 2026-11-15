@@ -40,7 +40,7 @@ fn missing(bins: &[&str]) -> Vec<String> {
 enum Do {
     /// Abrir la búsqueda de anime dentro de Nébula.
     Anime,
-    /// `ani-cli -c -S 1`: seguir lo último visto.
+    /// `ani-cli -c`: seguir lo último visto (con su menú de historial).
     Continue,
     /// `pkexec ani-cli -U`: actualizar el script con sus permisos.
     Update,
@@ -456,23 +456,21 @@ impl Search {
                         },
                     ));
                 }
-                let ep = if self.ep.trim().is_empty() {
-                    "1".to_string()
-                } else {
-                    self.ep.trim().to_string()
-                };
                 let mut cmd = String::from("ani-cli");
                 if self.dub {
                     cmd.push_str(" --dub");
                 }
-                // `-S 1` elige el primer resultado sin menú interactivo y
-                // `-e` evita la pregunta de episodio: todo sin terminal.
-                cmd.push_str(&format!(" -S 1 -e {ep} {}", quote(&hit.title)));
-                SAct::Run(Action::Run(Job::View {
-                    title: format!("anime · {}", ui::truncate(&hit.title, 34)),
-                    cwd: String::new(),
-                    cmd,
-                }))
+                // Sin `-S` ni `-e` por defecto: ani-cli muestra sus menús
+                // —elegir anime, elegir capítulo y, al cerrar, el de
+                // siguiente/anterior/repetir— tal cual funciona él solo.
+                // Sólo si se pidió capítulo con `e` se salta la pregunta.
+                if !self.ep.trim().is_empty() {
+                    cmd.push_str(&format!(" -e {}", self.ep.trim()));
+                }
+                cmd.push_str(&format!(" {}", quote(&hit.title)));
+                // La consola embebida sí tiene pty y teclado: ahí fzf
+                // puede abrirse (el visor interno sólo pinta salida).
+                SAct::Run(Action::Run(Job::Console(cmd)))
             }
             Kind::Video => {
                 if let Some(falta) = missing(&["mpv"]).first() {
@@ -736,12 +734,13 @@ impl Fun {
         let block = ui::panel_on(t, ctx.wp, side[1], " ⚙  herramientas ", 0.84);
         let inner2 = block.inner(side[1]);
         f.render_widget(block, side[1]);
-        let tools: [(&str, &str); 7] = [
+        // Sólo herramientas que Nébula invoca de verdad, y que por eso
+        // aparecen también en la pestaña Recursos de Ajustes.
+        let tools: [(&str, &str); 6] = [
             ("cliamp", "cliamp"),
             ("cmus", "cmus"),
             ("ani-cli", "ani-cli"),
             ("yt-dlp", "yt-dlp"),
-            ("ytfzf", "ytfzf"),
             ("mpv", "mpv"),
             ("timg", "timg"),
         ];
@@ -1509,11 +1508,9 @@ impl Fun {
                 self.search = Some(Search::new(Kind::Video));
                 Some(Action::Keep)
             }
-            Do::Continue => Some(Action::Run(Job::View {
-                title: "ani-cli · continuar".into(),
-                cwd: String::new(),
-                cmd: "ani-cli -c -S 1".into(),
-            })),
+            // Sin `-S 1`: si hay varias series a medias, el menú de
+            // historial de ani-cli deja elegir cuál continuar.
+            Do::Continue => Some(Action::Run(Job::Console("ani-cli -c".into()))),
             Do::Update => Some(Action::Run(Job::View {
                 title: "ani-cli · actualizar".into(),
                 cwd: String::new(),

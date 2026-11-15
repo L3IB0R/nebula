@@ -28,6 +28,10 @@ pub enum Job {
     RunIn { cwd: String, cmd: String },
     /// Shell: `cmd` vacío = terminal interactivo en `cwd`.
     Shell { cwd: String, cmd: String },
+    /// Ejecuta `cmd` en la consola embebida de Nébula (pty con teclado):
+    /// para lo interactivo —`fzf`, los menús de `ani-cli`— que el visor
+    /// interno no puede atender.
+    Console(String),
     /// Ejecuta `cmd` en `cwd` y pinta la salida **dentro** de Nébula
     /// (viser interno): nada se abre en otra terminal.
     View {

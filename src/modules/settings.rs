@@ -187,7 +187,9 @@ impl Settings {
             6 => &[
                 ("↑/↓", "recurso"),
                 ("espacio", "instalar sección"),
-                ("a", "instalar todo"),
+                ("a", "todo"),
+                ("r", "revisar"),
+                ("R", "reinstalar"),
                 ("←/→", "categoría"),
                 ("w", "guardar"),
             ],
@@ -333,6 +335,21 @@ impl Settings {
                 install_section(sec)
             }
             KeyCode::Char('a') if self.cat == 6 => install_all(),
+            // Recursos: recomprobar el estado (la caché miente tras
+            // instalar por fuera) o instalar/reinstalar SÓLO lo marcado.
+            KeyCode::Char('r') if self.cat == 6 => {
+                crate::resources::refresh();
+                Some(Action::Toast(format!(
+                    "recursos · {}/{} instalados",
+                    crate::resources::installed_count(),
+                    crate::resources::total()
+                )))
+            }
+            KeyCode::Char('R') if self.cat == 6 => {
+                let rows = res_rows();
+                let (si, item) = rows.get(self.sel[6]).copied().unwrap_or((0, None));
+                reinstall(si, item)
+            }
             // Terminal: los dos embebidos, pararlos, la TTY y el reinicio.
             KeyCode::Char(' ') | KeyCode::Enter if self.cat == 7 => {
                 match self.sel[7] {
@@ -1021,4 +1038,47 @@ fn install_all() -> Option<Action> {
         format!("¿Instalar los {n} recursos que faltan? (un solo pkexec)"),
         Job::Install { pkgs, cmds },
     ))
+}
+
+/// Instala o reinstala el recurso seleccionado, sólo ese: apt con
+/// `--reinstall` si ya estaba, o su instalador propio si no usa apt.
+fn reinstall(section: usize, item: Option<usize>) -> Option<Action> {
+    let Some(ii) = item else {
+        return Some(Action::Toast("elige un recurso, no una sección".into()));
+    };
+    let it = resources::SECTIONS.get(section)?.items.get(ii)?;
+    if !it.apt.is_empty() {
+        let instalado = resources::is_installed(section, ii);
+        let mut args = vec!["install".to_string()];
+        if instalado {
+            args.push("--reinstall".into());
+        }
+        args.push("-y".into());
+        args.push(it.apt.to_string());
+        return Some(Action::Confirm(
+            format!(
+                "{} {} con apt? (pide privilegios)",
+                if instalado {
+                    "¿Reinstalar"
+                } else {
+                    "¿Instalar"
+                },
+                it.apt
+            ),
+            Job::Apt(args),
+        ));
+    }
+    if !it.cmd.is_empty() {
+        return Some(Action::Confirm(
+            format!("¿Volver a instalar {} con su instalador?", it.label),
+            Job::Install {
+                pkgs: Vec::new(),
+                cmds: vec![(it.label.to_string(), it.cmd.to_string())],
+            },
+        ));
+    }
+    Some(Action::Toast(format!(
+        "{} no se puede reinstalar desde aquí",
+        it.label
+    )))
 }

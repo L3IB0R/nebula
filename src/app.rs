@@ -1218,6 +1218,20 @@ impl App {
                     }
                 }
             }
+            // ── Consola embebida: comandos que piden teclado ──
+            // A diferencia del visor (sólo pinta salida), aquí hay pty de
+            // verdad: `ani-cli` despliega sus menús de fzf sin salir de
+            // Nébula, y al terminar queda el prompt de la consola.
+            Job::Console(cmd) => {
+                if cmd.trim().is_empty() {
+                    return;
+                }
+                self.open_term(2);
+                if let Some(p) = self.term[2].as_mut() {
+                    p.write(format!("{cmd}\n").as_bytes());
+                }
+                self.toast = Some(("consola embebida · Ctrl+G para volver".into(), 3.0));
+            }
             // ── Visor interno: git, apt, scripts, instaladores… ──
             Job::View { title, cwd, cmd } => {
                 if cmd.trim().is_empty() {
