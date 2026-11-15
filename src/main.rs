@@ -127,7 +127,18 @@ fn main() -> std::io::Result<()> {
     // Señales: hay que guardar el termios original ANTES de que ratatui
     // ponga el terminal en crudo, y colgar los manejadores de salida.
     signals::install();
-    let mut terminal = ratatui::init();
+    // Nébula es una TUI: si no hay una terminal a la que agarrarse (un tubo,
+    // un servicio, un agente sin tty) no se puede poner en crudo ni leer el
+    // teclado. `try_init` lo resuelve con un mensaje en vez de un pánico.
+    let mut terminal = match ratatui::try_init() {
+        Ok(t) => t,
+        Err(e) => {
+            signals::disarm();
+            eprintln!("nébula necesita una terminal interactiva (tty): {e}");
+            eprintln!("ábrelo en un emulador de terminal o en una consola de texto (ctrl+alt+f3).");
+            std::process::exit(1);
+        }
+    };
     let _ = crossterm::execute!(
         std::io::stdout(),
         crossterm::event::EnableMouseCapture,
