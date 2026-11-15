@@ -29,15 +29,15 @@ const CATS: [&str; 8] = [
 const ICONS: [&str; 8] = ["☾", "✦", "◷", "▦", "☀", "⚙", "❖", "❯"];
 
 /// Fila del catálogo **Terminal**: estado de la sesión, los dos terminales
-/// embebidos, cómo pararlos, el brillo y el modo terminal.
-const TERMINAL: [&str; 8] = [
+/// embebidos, cómo pararlos, el brillo y el reinicio. Aquí no se decide
+/// nada de la sesión gráfica: eso es cosa de Nébula TTY.
+const TERMINAL: [&str; 7] = [
     "sesión",
     "terminal de cmus",
     "terminal de cliamp",
     "detener cmus",
     "detener cliamp",
     "brillo",
-    "modo terminal",
     "reiniciar equipo",
 ];
 
@@ -350,7 +350,7 @@ impl Settings {
                 let (si, item) = rows.get(self.sel[6]).copied().unwrap_or((0, None));
                 reinstall(si, item)
             }
-            // Terminal: los dos embebidos, pararlos, la TTY y el reinicio.
+            // Terminal: los dos embebidos, pararlos y el reinicio.
             KeyCode::Char(' ') | KeyCode::Enter if self.cat == 7 => {
                 match self.sel[7] {
                     1 => Some(Action::Term(0)),
@@ -358,33 +358,7 @@ impl Settings {
                     3 => Some(Action::StopCmus),
                     4 => Some(Action::StopCliamp),
                     // La sesión sólo se muestra; el brillo va con +/−.
-                    6 => {
-                        // En la TTY la acción es volver a la interfaz.
-                        let s = crate::data::session();
-                        if s.graphical() {
-                            Some(Action::Confirm(
-                                "Modo terminal: Nébula termina y el comando queda en la TTY. ¿Parar la interfaz gráfica?"
-                                    .into(),
-                                Job::Tty(vec![
-                                    "pkexec".into(),
-                                    "systemctl".into(),
-                                    "isolate".into(),
-                                    "multi-user.target".into(),
-                                ]),
-                            ))
-                        } else {
-                            Some(Action::Confirm(
-                                "¿Volver a arrancar la interfaz gráfica?".into(),
-                                Job::Tty(vec![
-                                    "pkexec".into(),
-                                    "systemctl".into(),
-                                    "isolate".into(),
-                                    "graphical.target".into(),
-                                ]),
-                            ))
-                        }
-                    }
-                    7 => Some(Action::Confirm(
+                    6 => Some(Action::Confirm(
                         "¿Reiniciar el equipo?".into(),
                         Job::Tty(vec!["pkexec".into(), "systemctl".into(), "reboot".into()]),
                     )),
@@ -760,7 +734,7 @@ fn render_clima(f: &mut Frame, inner: Rect, st: &Settings, cfg: &Config, t: &cra
 }
 
 /// Filas de la categoría Terminal: en qué sesión vivimos, los dos
-/// terminales embebidos, cómo pararlos, el brillo y la salida a la TTY.
+/// terminales embebidos, cómo pararlos, el brillo y el reinicio.
 fn render_terminal(f: &mut Frame, inner: Rect, st: &mut Settings, t: &crate::config::Theme) {
     let s = crate::data::session();
     let dm = if s.dm.is_empty() {
@@ -788,11 +762,6 @@ fn render_terminal(f: &mut Frame, inner: Rect, st: &mut Settings, t: &crate::con
             Some(v) => slider(v / 100.0),
             None => "no regulable".to_string(),
         },
-        if s.graphical() {
-            "salir y dejar la TTY".to_string()
-        } else {
-            "volver a la interfaz".to_string()
-        },
         "pkexec reboot".to_string(),
     ];
     let mut lines: Vec<Line> = TERMINAL
@@ -812,10 +781,6 @@ fn render_terminal(f: &mut Frame, inner: Rect, st: &mut Settings, t: &crate::con
     )));
     lines.push(Line::from(Span::styled(
         "  el brillo también se mueve con + y − (teclas del portátil)",
-        Style::default().fg(t.fg_faint),
-    )));
-    lines.push(Line::from(Span::styled(
-        "  al salir a la TTY, pkexec pregunta en una terminal de verdad",
         Style::default().fg(t.fg_faint),
     )));
     f.render_widget(ratatui::widgets::Paragraph::new(lines), inner);

@@ -247,7 +247,7 @@ pub struct App {
     term: [Option<crate::term::Pty>; 3],
     /// Qué terminal está en pantalla cuando el panel está abierto.
     term_focus: usize,
-    /// Comando que se ejecuta en la TTY al salir de Nébula (modo terminal).
+    /// Comando que se ejecuta en la TTY al salir de Nébula (reinicio).
     pub pending: Option<Vec<String>>,
     toast: Option<(String, f32)>,
     loaded: [bool; tab::COUNT],

@@ -117,10 +117,6 @@ const PAGES: &[(&str, &[(&str, &str)])] = &[
                 "brillo",
                 "Ajustes → Terminal, con + y − (teclas del portátil)",
             ),
-            (
-                "modo terminal",
-                "Ajustes → Terminal: sale a la TTY y pkexec pregunta allí",
-            ),
             ("reiniciar", "Ajustes → Terminal, con confirmación"),
         ],
     ),

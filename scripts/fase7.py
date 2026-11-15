@@ -4,8 +4,8 @@
 Cubre: el terminal embebido de Entretenimiento (`t`), su salida con `Ctrl+G`,
 el cambio de aplicación con `Ctrl+O`, la detención con `Ctrl+T`, las teclas
 `g` (emisoras y géneros) y `d` (descargador por URL), el hint nuevo del pie,
-la categoría **Terminal** de Ajustes con sus filas (sesión, detener, brillo,
-modo terminal y reinicio) y que los diálogos destructivos se cancelan con
+la categoría **Terminal** de Ajustes con sus filas (sesión, detener, brillo
+y reinicio) y que los diálogos destructivos se cancelan con
 `Esc`. En ningún momento se apaga la sesión ni se reinicia la máquina.
 
 Uso: python3 scripts/fase7.py [--release]
@@ -266,8 +266,8 @@ t = snap("40_terminal")
 check("la octava categoría es Terminal", "Terminal" in t)
 check("lista los dos terminales",
       all(s in content(t) for s in ["terminal de cmus", "terminal de cliamp"]))
-check("lista detener, brillo y modo terminal",
-      all(s in content(t) for s in ["detener cmus", "detener cliamp", "brillo", "modo terminal"]))
+check("lista detener, brillo y reinicio",
+      all(s in content(t) for s in ["detener cmus", "detener cliamp", "brillo", "reiniciar equipo"]))
 check("muestra la sesión en la que vivimos", "objetivo" in content(t))
 check("el pie de Terminal explica sus teclas", "brillo" in hint_row(t))
 
@@ -279,23 +279,14 @@ t = snap("41_detener")
 check("detener cmus responde con un aviso",
       any(s in status_row(t) for s in ["detenido", "no estaba corriendo"]))
 
-# ── Modo terminal: sólo el diálogo, nunca la orden ────────────────────────
+# ── Reinicio: sólo el diálogo, nunca la orden ──────────────────────────────
 for _ in range(3):
-    send(b"\x1b[B", 0.3)  # ↓ hasta «modo terminal»
+    send(b"\x1b[B", 0.3)  # ↓ hasta «reiniciar equipo»
 send(b"\r", 0.8)
-t = snap("42_modo_terminal")
-check("el modo terminal pide confirmación",
-      "Modo terminal" in t and "TTY" in t)
+t = snap("42_reinicio")
+check("reiniciar pide confirmación", "Reiniciar el equipo" in t)
 send(b"\x1b", 0.5)  # Esc: se cancela
-t = snap("43_cancela")
-check("Esc cancela sin salir de Nébula", alive() and "Modo terminal" not in t)
-
-send(b"\x1b[B", 0.3)  # ↓ reiniciar
-send(b"\r", 0.8)
-t = snap("44_reinicio")
-check("reiniciar también pide confirmación", "Reiniciar el equipo" in t)
-send(b"\x1b", 0.5)
-check("y se cancela igual", "Reiniciar el equipo" not in screen())
+check("Esc cancela sin salir de Nébula", alive() and "Reiniciar el equipo" not in screen())
 
 # ── Brillo con las teclas del portátil ────────────────────────────────────
 send(b"+", 0.6)

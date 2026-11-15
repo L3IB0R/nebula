@@ -2091,7 +2091,7 @@ pub fn cmus_volume(delta: i32) -> (bool, String) {
     run_full("cmus-remote", &["-v", &next.to_string()])
 }
 
-// ── Fase 7: terminales, emisoras y modo terminal ─────────────────────────
+// ── Fase 7: terminales, emisoras y reinicio ───────────────────────────────
 
 /// Detiene cmus (la instancia que esté) y **espera** a que libere su
 /// socket: sin esa espera la siguiente instancia se queja de que ya hay
@@ -2302,7 +2302,7 @@ pub fn cmus_lib_empty() -> bool {
     }
 }
 
-// ── Sesión y TTY (modo terminal) ─────────────────────────────────────────
+// ── Sesión y TTY ──────────────────────────────────────────────────────────
 
 /// Dónde vive Nébula: sesión gráfica o consola de texto, y qué gestor de
 /// display la sostiene. Se calcula una sola vez: no cambia en caliente.
@@ -2313,13 +2313,6 @@ pub struct Session {
     pub dm: String,
     /// Objetivo por defecto de systemd (`graphical.target`…).
     pub target: String,
-}
-
-impl Session {
-    /// ¿Estamos en la sesión gráfica (y no en una consola de texto)?
-    pub fn graphical(&self) -> bool {
-        self.kind != "tty"
-    }
 }
 
 /// Información de la sesión (cacheada).
