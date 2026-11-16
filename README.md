@@ -60,7 +60,7 @@ Pues esto viene a ser eso… sólo que al final le fui agregando cosas.
 | **Servicios** | `systemctl` completo con filtro, arranque/parada y recarga; el estado se lee en el visor interno |
 | **Notas** | Bloc dentro de Nébula: leer con las flechas, `i` para editar, `Ctrl+S` para guardar |
 | **Ajustes** | Ocho categorías —Temas, Apariencia, Reloj, Widgets, **Clima**, Sistema, **Recursos** y **Terminal**— con controles visibles |
-| **Entretenimiento** | Anime y vídeo **buscados dentro de Nébula** (AniList · `yt-dlp`), imágenes (`timg`), **terminales embebidos de cmus y cliamp** y la **consola embebida** (`Alt+T`), el menú de **emisoras y géneros**, el **descargador de música por URL** y **el reproductor embebido**: `espacio` play/pausa, `m` menú de música y grupo `♪ cliamp · online` |
+| **Entretenimiento** | **Anime con el flujo de `ani-cli` tal cual** (su búsqueda, su lista de capítulos y su menú corren en la **consola embebida** — nada se reproduce sin que lo elijas—), vídeo **buscado dentro de Nébula** (`yt-dlp`), imágenes (`timg`), **terminales embebidos de cmus y cliamp** y la **consola embebida** (`Alt+T`), el menú de **emisoras y géneros**, el **descargador de música por URL** y **el reproductor embebido**: `espacio` play/pausa, `m` menú de música y grupo `♪ cliamp · online` |
 
 Los detalles de cada fase —y del mantenimiento de v0.7.0— están en el
 [CHANGELOG](CHANGELOG.md). Lo que se nota al usarlo:
@@ -218,7 +218,7 @@ sudo apt install zoxide              # carpetas frecuentes primero en el lanzado
 sudo apt install ani-cli mpv fzf     # anime desde Entretenimiento (se ofrece ahí mismo)
 sudo apt install yt-dlp ffmpeg mpv  # descargas y búsqueda de vídeo
 # cliamp        → se instala desde el menú de música (m en Entretenimiento)
-# curl          → tarjeta de clima (wttr.in) y búsqueda de anime (AniList)
+# curl          → tarjeta de clima (wttr.in)
 # docker/podman, flatpak, snap, nmcli, ss, pywal, timg
 ```
 
@@ -233,7 +233,7 @@ python3 scripts/smoke.py    # recorre los 12 módulos en un pty y no debe fallar
 python3 scripts/fase2.py    # zen, lateral, volumen, silencio y clima
 python3 scripts/fase3.py    # reloj, ajustes (8 categorías), widgets y recursos
 python3 scripts/fase4.py    # arranque, Ctrl+E, clima, entretenimiento y menús
-python3 scripts/fase5.py    # visor interno, commit, búsqueda de anime y reproductores
+python3 scripts/fase5.py    # visor interno, commit, flujo de ani-cli y reproductores
 python3 scripts/fase6.py    # lateral por secciones, pies de atajos, tira de git y chip ♪
 python3 scripts/fase7.py    # terminales embebidos, emisoras, descargas, brillo y TTY
 python3 scripts/mant.py     # señales (SIGTERM), consola embebida y siembra de cmus
@@ -276,15 +276,14 @@ trabajo duro. Les debo esto.
   y su chip `♪` en la barra de estado. Nébula lo siembra, lo enseña y no se
   mete en su camino.
 - **[ani-cli](https://github.com/pystardust/ani-cli)** — ver anime desde la
-  terminal. Nébula lo invoca para reproducir lo que buscas en AniList, sin
-  salir del TUI.
+  terminal. Nébula no lo mejora ni lo copia: le abre su consola embebida y
+  deja que él lleve el flujo entero (buscar, elegir serie, elegir capítulo,
+  menú tras reproducir) tal cual funciona él solo.
 - **[cmus](https://github.com/cmus/cmus)** — el reproductor clásico. Al
   arrancar, Nébula siembra su biblioteca desde `~/Música` si la encuentra en
   blanco.
 - **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — el motor del descargador de
   música por URL (`d`), con metadatos embebidos.
-- **[AniList](https://anilist.co)** — su API pública devuelve las fichas de
-  anime (título, año, episodios y nota).
 - **[wttr.in](https://github.com/chubin/wttr.in)** — el clima del widget de
   Inicio, sin clave ni registro.
 - **[timg](https://github.com/hzeller/timg)** — visor de imágenes de terminal:

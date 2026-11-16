@@ -894,19 +894,11 @@ impl App {
                 fetch_weather_now(self.tx.clone(), self.place.clone());
                 self.toast = Some(("consultando clima…".into(), 2.0));
             }
-            Action::Search {
-                token,
-                anime,
-                query,
-            } => {
+            Action::Search { token, query } => {
                 if query.trim().is_empty() {
                     return;
                 }
-                if anime {
-                    spawn_anime_search(self.tx.clone(), token, query);
-                } else {
-                    spawn_video_search(self.tx.clone(), token, query);
-                }
+                spawn_video_search(self.tx.clone(), token, query);
                 self.toast = Some(("buscando…".into(), 2.5));
             }
             // ── Fase 7: terminales embebidos, emisoras, descargas, TTY ──

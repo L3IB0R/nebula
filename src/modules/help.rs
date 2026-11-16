@@ -73,7 +73,7 @@ const PAGES: &[(&str, &[(&str, &str)])] = &[
             ),
             (
                 "Entretenimiento",
-                "espacio play/pausa · intro buscar anime/vídeo · m menú música",
+                "espacio play/pausa · intro buscar vídeo · m menú música",
             ),
             (
                 "t / g / d",

@@ -3,7 +3,7 @@
 
 Cubre: el visor interno de salida (git status/diff/log, systemctl), el menú
 de acciones y el commit de dos campos de git, el panel de instalación de apt,
-la búsqueda de anime sin terminal externa y el arranque de cliamp/cmus desde
+el flujo de ani-cli en la consola embebida y el arranque de cliamp/cmus desde
 la pestaña Música. En ningún momento debe abrirse otra terminal.
 
 Uso: python3 scripts/fase5.py [--release]
@@ -136,7 +136,8 @@ check("la pestaña Git abre", "Repos" in t and "Estado" in t)
 send(b"\r", 1.5)  # Intro → git status dentro de Nébula
 t = snap("03_git_status")
 check("Intro abre el visor con git status", viewer_open(t) and "git status" in t)
-check("la salida del estatus se ve dentro", "master" in t or "??" in t or "commits" in t)
+check("la salida del estatus se ve dentro",
+      "master" in t or "branch" in t or "??" in t or "commits" in t)
 check("el visor muestra su pie de ayuda", "esc cerrar" in t)
 check("el estatus terminó sin errores", "terminado" in t and "errores" not in t)
 
@@ -214,24 +215,31 @@ if re.search(r"\b(apache|ssh|NetworkManager|bluetooth|cups|cron|getty)\b", t):
 else:
     print("[warn] sin servicios que seleccionar; se omite")
 
-# ── Entretenimiento: buscar anime sin terminal ────────────────────────────
+# ── Entretenimiento: el flujo de ani-cli, tal cual él lo hace ────────────
 goto(9)
 t = snap("19_entretenimiento")
 check("la pestaña Entretenimiento abre", "Entretenimiento" in head(t, 4))
 
 send(b"\r", 0.8)  # Intro en «buscar anime»
+ok = wait_for(lambda s: "Search anime" in s, 8.0)
 t = snap("20_buscar_anime")
-check("abre la búsqueda dentro de Nébula", "buscar anime" in t and "intro buscar" in t)
-send(b"naruto", 0.4)
-send(b"\r", 0.5)
-ok = wait_for(lambda s: "resultados" in s or "sin resultados" in s or "no se pudo" in s, 8.0)
-t = snap("21_resultados")
-check("los resultados aparecen en la lista", ok and "resultados" in t)
-check("lista títulos con su detalle", "NARUTO" in t.upper() and "epi" in t)
-send(b"\x1b", 0.4)  # → consulta
-send(b"\x1b", 0.4)  # → cierra
+check("abre la consola con el flujo de ani-cli", ok and "Search anime" in t)
+check("es ani-cli quien pide la búsqueda", "Search anime" in t)
+
+send(b"naruto\r", 1.5)
+ok = wait_for(lambda s: "Select anime" in s or "No results" in s, 25.0)
+t = snap("21_menu_anime")
+if "Select anime" in t:
+    check("ani-cli lista los animes y espera tu elección", ok)
+    check("no se reproduce nada sin que elijas", "Playing" not in t)
+else:
+    print("[warn] sin red para la búsqueda de ani-cli; se omite su menú")
+send(b"\x1b", 0.8)  # Esc: cancela el menú y ani-cli termina
+send(b"\x03", 0.4)  # Ctrl+C: corta lo que quede en la consola
+send(b"\x07", 0.6)  # Ctrl+G: de la consola, vuelta a Nébula
 t = snap("22_buscar_cerrado")
-check("Esc vuelve a la pestaña", "intro buscar" not in t)
+check("vuelve a la pestaña sin terminal externa",
+      "Entretenimiento" in head(t, 4) and terminals() <= term0)
 
 # ── Música: cliamp y cmus embebidos en Entretenimiento ────────────────────
 # Estado limpio: si quedó algo sonando de pruebas previas, el motor elegido

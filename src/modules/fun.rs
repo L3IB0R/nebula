@@ -1,9 +1,11 @@
 //! Entretenimiento: anime, vídeo, música local e imágenes desde la TUI.
 //!
-//! Las búsquedas ocurren **dentro** de Nébula —AniList para anime, yt-dlp
-//! para vídeo—: se escribe el nombre, se elige de la lista y la
-//! reproducción arranca desde aquí, con la salida en el visor interno.
-//! Nada se abre en otra terminal.
+//! El anime es **el flujo de `ani-cli` tal cual**: «buscar anime» abre su
+//! menú nativo en la consola embebida —él busca, él lista los capítulos,
+//! él espera a que elijas— y nada se reproduce sin que lo hayas escogido.
+//! El vídeo se busca dentro de Nébula (yt-dlp): se escribe el nombre, se
+//! elige de la lista y la reproducción arranca desde aquí, con la salida
+//! en el visor interno. Nada se abre en otra terminal.
 
 use crate::action::{Action, Job};
 use crate::app::Ctx;
@@ -38,7 +40,8 @@ fn missing(bins: &[&str]) -> Vec<String> {
 /// Qué hace una fila al pulsar Intro.
 #[derive(Clone, Copy)]
 enum Do {
-    /// Abrir la búsqueda de anime dentro de Nébula.
+    /// `ani-cli` interactivo en la consola embebida: él lleva todo el
+    /// flujo (buscar → elegir serie → lista de capítulos → reproducir).
     Anime,
     /// `ani-cli -c`: seguir lo último visto (con su menú de historial).
     Continue,
@@ -281,13 +284,6 @@ fn act_rows() -> Vec<usize> {
 
 // ── Búsqueda dentro de Nébula ────────────────────────────────────────────
 
-/// Fuente de la búsqueda.
-#[derive(Clone, Copy, PartialEq)]
-enum Kind {
-    Anime,
-    Video,
-}
-
 /// Fase de la búsqueda abierta.
 #[derive(Clone, Copy, PartialEq)]
 enum Phase {
@@ -295,8 +291,6 @@ enum Phase {
     Query,
     /// Eligiendo entre los resultados.
     Results,
-    /// Escribiendo el episodio (sólo anime).
-    Episode,
 }
 
 /// Qué hacer tras una tecla de la búsqueda.
@@ -311,40 +305,29 @@ enum SAct {
 
 /// Búsqueda en marcha, con su lista de resultados.
 struct Search {
-    kind: Kind,
     phase: Phase,
     query: String,
-    /// Episodio a reproducir (sólo anime).
-    ep: String,
     hits: Vec<Hit>,
     error: String,
     sel: usize,
-    /// Versión doblada (`--dub`).
-    dub: bool,
     /// Nº de consulta en vuelo (casa con `Msg::Search`).
     token: u64,
 }
 
 impl Search {
-    fn new(kind: Kind) -> Search {
+    fn new() -> Search {
         Search {
-            kind,
             phase: Phase::Query,
             query: String::new(),
-            ep: "1".to_string(),
             hits: Vec::new(),
             error: String::new(),
             sel: 0,
-            dub: false,
             token: 0,
         }
     }
 
     fn label(&self) -> &'static str {
-        match self.kind {
-            Kind::Anime => "buscar anime",
-            Kind::Video => "buscar vídeo",
-        }
+        "buscar vídeo"
     }
 
     /// Teclas de la búsqueda.
@@ -367,27 +350,11 @@ impl Search {
                     self.sel = 0;
                     SAct::Run(Action::Search {
                         token: self.token,
-                        anime: self.kind == Kind::Anime,
                         query: q,
                     })
                 }
                 KeyCode::Char(c) if !c.is_control() => {
                     self.query.push(c);
-                    SAct::Keep
-                }
-                _ => SAct::Keep,
-            },
-            Phase::Episode => match key.code {
-                KeyCode::Esc | KeyCode::Enter => {
-                    self.phase = Phase::Results;
-                    SAct::Keep
-                }
-                KeyCode::Backspace => {
-                    self.ep.pop();
-                    SAct::Keep
-                }
-                KeyCode::Char(c) if c.is_ascii_digit() && self.ep.len() < 3 => {
-                    self.ep.push(c);
                     SAct::Keep
                 }
                 _ => SAct::Keep,
@@ -421,75 +388,32 @@ impl Search {
                     self.sel = self.hits.len().saturating_sub(1);
                     SAct::Keep
                 }
-                KeyCode::Char('e') => {
-                    self.phase = Phase::Episode;
-                    SAct::Keep
-                }
-                KeyCode::Char('d') | KeyCode::Char('D') if self.kind == Kind::Anime => {
-                    self.dub = !self.dub;
-                    SAct::Keep
-                }
                 KeyCode::Enter => self.play(),
                 _ => SAct::Keep,
             },
         }
     }
 
-    /// Reproduce la fila elegida (ofreciendo instalar lo que haga falta).
+    /// Reproduce el vídeo elegido (ofreciendo instalar lo que haga falta).
     fn play(&self) -> SAct {
         let Some(hit) = self.hits.get(self.sel).cloned() else {
             return SAct::Run(Action::Toast("no hay ningún resultado".into()));
         };
-        match self.kind {
-            Kind::Anime => {
-                let falta = missing(&["ani-cli", "mpv", "fzf"]);
-                if !falta.is_empty() {
-                    return SAct::Run(Action::Confirm(
-                        format!(
-                            "«{}» necesita {} paquete(s) para reproducir. ¿Instalarlos?",
-                            ui::truncate(&hit.title, 30),
-                            falta.len()
-                        ),
-                        Job::Install {
-                            pkgs: falta,
-                            cmds: Vec::new(),
-                        },
-                    ));
-                }
-                let mut cmd = String::from("ani-cli");
-                if self.dub {
-                    cmd.push_str(" --dub");
-                }
-                // Sin `-S` ni `-e` por defecto: ani-cli muestra sus menús
-                // —elegir anime, elegir capítulo y, al cerrar, el de
-                // siguiente/anterior/repetir— tal cual funciona él solo.
-                // Sólo si se pidió capítulo con `e` se salta la pregunta.
-                if !self.ep.trim().is_empty() {
-                    cmd.push_str(&format!(" -e {}", self.ep.trim()));
-                }
-                cmd.push_str(&format!(" {}", quote(&hit.title)));
-                // La consola embebida sí tiene pty y teclado: ahí fzf
-                // puede abrirse (el visor interno sólo pinta salida).
-                SAct::Run(Action::Run(Job::Console(cmd)))
-            }
-            Kind::Video => {
-                if let Some(falta) = missing(&["mpv"]).first() {
-                    return SAct::Run(Action::Confirm(
-                        format!("¿Instalar {falta} para ver los vídeos? (pide privilegios)"),
-                        Job::Install {
-                            pkgs: vec![falta.clone()],
-                            cmds: Vec::new(),
-                        },
-                    ));
-                }
-                let url = format!("https://www.youtube.com/watch?v={}", hit.id);
-                SAct::Run(Action::Run(Job::Plain(vec![
-                    "mpv".into(),
-                    "--no-terminal".into(),
-                    url,
-                ])))
-            }
+        if let Some(falta) = missing(&["mpv"]).first() {
+            return SAct::Run(Action::Confirm(
+                format!("¿Instalar {falta} para ver los vídeos? (pide privilegios)"),
+                Job::Install {
+                    pkgs: vec![falta.clone()],
+                    cmds: Vec::new(),
+                },
+            ));
         }
+        let url = format!("https://www.youtube.com/watch?v={}", hit.id);
+        SAct::Run(Action::Run(Job::Plain(vec![
+            "mpv".into(),
+            "--no-terminal".into(),
+            url,
+        ])))
     }
 }
 
@@ -598,7 +522,7 @@ pub struct Fun {
     /// Estado de cmus visto la última vez (None = sin consultar).
     cmus: Option<String>,
     cmus_at: Option<std::time::Instant>,
-    /// Búsqueda abierta (anime o vídeo).
+    /// Búsqueda abierta (vídeo; el anime es cosa de `ani-cli`).
     search: Option<Search>,
     /// Menú de emisoras y géneros abierto.
     stations: Option<Stations>,
@@ -1098,41 +1022,11 @@ impl Fun {
                 ],
                 "  intro buscar · esc cancelar".to_string(),
             ),
-            Phase::Episode => (
-                " ✦  episodio ".to_string(),
-                vec![
-                    Line::from(Span::styled(
-                        "  nº de episodio a ver",
-                        Style::default().fg(t.fg_faint),
-                    )),
-                    Line::from(""),
-                    Line::from(vec![
-                        Span::styled("  ▸ ", Style::default().fg(t.accent)),
-                        Span::styled(
-                            format!("{}▏", s.ep),
-                            Style::default().fg(t.fg).add_modifier(Modifier::BOLD),
-                        ),
-                    ]),
-                ],
-                "  intro guardar · esc volver".to_string(),
-            ),
             Phase::Results => {
                 let mut v: Vec<Line> = Vec::new();
                 v.push(Line::from(vec![
                     Span::styled("  ", Style::default()),
                     Span::styled(ui::truncate(&s.query, 38), Style::default().fg(t.accent2)),
-                    if s.kind == Kind::Anime {
-                        Span::styled(
-                            if s.dub {
-                                "  · doblado"
-                            } else {
-                                "  · subtitulado"
-                            },
-                            Style::default().fg(t.fg_faint),
-                        )
-                    } else {
-                        Span::raw("")
-                    },
                 ]));
                 if !s.error.is_empty() {
                     v.push(Line::from(""));
@@ -1191,11 +1085,7 @@ impl Fun {
                         Style::default().fg(t.fg_faint),
                     )));
                 }
-                let h = if s.kind == Kind::Anime {
-                    "  intro reproducir · e episodio · D doblado · esc volver"
-                } else {
-                    "  intro reproducir · esc volver"
-                };
+                let h = "  intro reproducir · esc volver";
                 (format!(" ✦  {} ", s.label()), v, h.to_string())
             }
         };
@@ -1475,9 +1365,11 @@ impl Fun {
             return None;
         };
 
-        // Si falta la herramienta, ofrecemos instalarla. Las búsquedas no
-        // la necesitan: sólo hacen falta al reproducir (allí se ofrecen).
-        if !matches!(do_, Do::Anime | Do::Video) {
+        // Si falta la herramienta, ofrecemos instalarla. La búsqueda de
+        // vídeo no la necesita: sólo hace falta al reproducir (allí se
+        // ofrece). El anime sí la pide ya, porque él es quien lleva el
+        // flujo entero en su consola.
+        if !matches!(do_, Do::Video) {
             let falta: Vec<String> = pkgs
                 .iter()
                 .filter(|p| which(p).is_none())
@@ -1499,13 +1391,12 @@ impl Fun {
         let _ = bin;
 
         match do_ {
-            // Las búsquedas se abren aquí dentro, sin terminal.
-            Do::Anime => {
-                self.search = Some(Search::new(Kind::Anime));
-                Some(Action::Keep)
-            }
+            // El flujo de ani-cli entero, tal cual él lo hace: pide la
+            // búsqueda, lista los animes, lista los capítulos y sólo
+            // reproduce el que tú elijas. Aquí no metemos mano.
+            Do::Anime => Some(Action::Run(Job::Console("ani-cli".into()))),
             Do::Video => {
-                self.search = Some(Search::new(Kind::Video));
+                self.search = Some(Search::new());
                 Some(Action::Keep)
             }
             // Sin `-S 1`: si hay varias series a medias, el menú de

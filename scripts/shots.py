@@ -274,7 +274,7 @@ if not fails:
     send(b"\x1b")
     pump(0.5)
 
-    # Fase 5: búsqueda de anime dentro de la propia TUI (AniList).
+    # Fase 5: el flujo de ani-cli completo dentro de la consola embebida.
     send(b"1")  # Inicio → BackTab ×3: Entretenimiento
     pump(1.0)
     for _ in range(3):
@@ -282,18 +282,21 @@ if not fails:
         pump(0.3)
     pump(1.0)
     send(b"\r")  # «buscar anime»
-    pump(0.8)
-    send(b"naruto")
-    pump(0.4)
-    send(b"\r")
-    pump(5.0)
+    pump(1.5)
+    send(b"naruto\r")
+    # Su menú de selección (si no hay red, se queda pidiendo la búsqueda).
+    end = time.time() + 25.0
+    while time.time() < end and "Select anime" not in screen().text():
+        pump(0.5)
     if not render("16-buscar-anime.png",
-                  lambda t: "resultados" in t and "epi" in t):
+                  lambda t: "Search anime" in t or "Select anime" in t):
         fails += 1
-    send(b"\x1b")
+    send(b"\x03")
     pump(0.4)
-    send(b"\x1b")
+    send(b"\x03")
     pump(0.4)
+    send(b"\x07")  # Ctrl+G: de la consola, vuelta a Nébula
+    pump(0.8)
 
     # Fase 6: la tira de git y el panel apt, siempre a la vista.
     send(b"1")  # Inicio → BackTab ×5: pestaña Git

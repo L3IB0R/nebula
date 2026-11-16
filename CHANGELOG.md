@@ -3,6 +3,16 @@
 Todo lo notable de Nébula, formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/),
 y el proyecto sigue [SemVer](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Cambiado
+- **Anime**: «buscar anime» ya no busca dentro de la TUI — abre `ani-cli`
+  en la consola embebida y le deja el flujo entero: él pide la búsqueda,
+  él lista los animes y los capítulos y **sólo reproduce el que tú elijas**
+  (adiós a que arrancara un capítulo sin escogerlo). Fuera la ficha de
+  AniList, la fase de episodio y las teclas `e`/`D`.
+- La búsqueda de vídeo (yt-dlp) sigue igual, dentro de la TUI.
+
 ## [0.7.0] - 2026-11-14
 
 Versión "terminales embebidas": Nébula crece como centro de mando y limpia su salida.

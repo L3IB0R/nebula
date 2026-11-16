@@ -550,7 +550,7 @@ pub enum Msg {
         id: u64,
         ok: bool,
     },
-    /// Resultados de una búsqueda de Entretenimiento (anime o vídeo).
+    /// Resultados de la búsqueda de vídeo de Entretenimiento (yt-dlp).
     Search {
         token: u64,
         hits: Vec<Hit>,
@@ -567,14 +567,14 @@ pub enum Msg {
     },
 }
 
-/// Una fila de resultado de búsqueda (anime o vídeo).
+/// Una fila de resultado de búsqueda de vídeo.
 #[derive(Clone, Debug)]
 pub struct Hit {
     /// Título tal cual se pasa al reproductor.
     pub title: String,
     /// Detalle visible (año, episodios, duración…).
     pub sub: String,
-    /// Identificador (id de AniList / id de YouTube).
+    /// Identificador (id de YouTube).
     pub id: String,
 }
 
@@ -2371,44 +2371,6 @@ pub fn tty_name() -> String {
 
 // ── Búsquedas de Entretenimiento ─────────────────────────────────────────
 
-/// Busca anime en la API de AniList (graphql.anilist.co): la lista sale
-/// dentro de Nébula y de ahí se lanza la reproducción con ani-cli.
-pub fn spawn_anime_search(tx: Sender<Msg>, token: u64, query: String) {
-    std::thread::spawn(move || {
-        // La consulta viaja como JSON (serde_json se encarga de escaparla).
-        let body = serde_json::to_string(&serde_json::json!({
-            "query": "query ($q: String) { Page(page: 1, perPage: 14) { \
-                       media(search: $q, type: ANIME, sort: SEARCH_MATCH) { \
-                       title { romaji } episodes startDate { year } \
-                       averageScore format id } } }",
-            "variables": { "q": query.trim() },
-        }))
-        .unwrap_or_default();
-        let raw = run(
-            "curl",
-            &[
-                "-s",
-                "-m",
-                "12",
-                "-H",
-                "Content-Type: application/json",
-                "--data",
-                &body,
-                "https://graphql.anilist.co",
-            ],
-        );
-        let (hits, error) = match raw {
-            None => (Vec::new(), "no hay red para consultar".into()),
-            Some(out) => match parse_anime(&out) {
-                Some(h) if !h.is_empty() => (h, String::new()),
-                Some(_) => (Vec::new(), "sin resultados para esa búsqueda".into()),
-                None => (Vec::new(), "la respuesta no se pudo leer".into()),
-            },
-        };
-        let _ = tx.send(Msg::Search { token, hits, error });
-    });
-}
-
 /// Busca vídeos con yt-dlp (YouTube) sin salir de Nébula.
 pub fn spawn_video_search(tx: Sender<Msg>, token: u64, query: String) {
     std::thread::spawn(move || {
@@ -2430,54 +2392,6 @@ pub fn spawn_video_search(tx: Sender<Msg>, token: u64, query: String) {
         };
         let _ = tx.send(Msg::Search { token, hits, error });
     });
-}
-
-/// `data.Page.media[]` de AniList → filas del visor de resultados.
-fn parse_anime(out: &str) -> Option<Vec<Hit>> {
-    let v: serde_json::Value = serde_json::from_str(out).ok()?;
-    let arr = v.get("data")?.get("Page")?.get("media")?.as_array()?;
-    Some(
-        arr.iter()
-            .filter_map(|e| {
-                let title = e
-                    .get("title")?
-                    .get("romaji")
-                    .or_else(|| e.get("title")?.get("english"))
-                    .and_then(|t| t.as_str())?
-                    .trim()
-                    .to_string();
-                if title.is_empty() {
-                    return None;
-                }
-                let year = e
-                    .get("startDate")
-                    .and_then(|d| d.get("year"))
-                    .and_then(|y| y.as_i64())
-                    .map(|y| y.to_string())
-                    .unwrap_or_else(|| "—".into());
-                let eps = e
-                    .get("episodes")
-                    .and_then(|x| x.as_i64())
-                    .map(|x| format!("{x} epi"))
-                    .unwrap_or_else(|| "sin avisar".into());
-                let score = e
-                    .get("averageScore")
-                    .and_then(|x| x.as_i64())
-                    .map(|x| format!("★{x}"))
-                    .unwrap_or_else(|| "★—".into());
-                let kind = e.get("format").and_then(|x| x.as_str()).unwrap_or("TV");
-                Some(Hit {
-                    title,
-                    sub: format!("{kind} · {year} · {eps} · {score}"),
-                    id: e
-                        .get("id")
-                        .and_then(|x| x.as_i64())
-                        .map(|x| x.to_string())
-                        .unwrap_or_default(),
-                })
-            })
-            .collect(),
-    )
 }
 
 /// Salida de `yt-dlp --print` → filas del visor de resultados.

@@ -80,12 +80,10 @@ pub enum Action {
     ReloadWallpaper,
     /// Consultar el clima ahora (tras cambiar la ubicación).
     RefreshWeather,
-    /// Buscar en Entretenimiento sin salir de Nébula: `anime` = AniList
-    /// (ani-cli para reproducir), lo contrario = yt-dlp. `token` casa la
-    /// respuesta con la consulta que la lanzó.
+    /// Buscar vídeo en Entretenimiento sin salir de Nébula (yt-dlp).
+    /// `token` casa la respuesta con la consulta que la lanzó.
     Search {
         token: u64,
-        anime: bool,
         query: String,
     },
     /// Abrir el terminal embebido: `0` = cmus, `1` = cliamp.
